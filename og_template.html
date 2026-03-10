@@ -8,24 +8,21 @@
       padding: 0;
       width: 1200px;
       height: 630px;
-      background-color: #05070D;
+      background-color: #090909;
       overflow: hidden;
     }
     body {
       margin: 0;
       width: 1200px;
       height: 630px;
-      color: #f4f8ff;
-      font-family: "Avenir Next", "Optima", "Segoe UI", sans-serif;
+      color: #fff9da;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
       background:
-        radial-gradient(circle at 18% 0%, rgba(21, 148, 255, 0.18), transparent 26%),
-        radial-gradient(circle at 82% 16%, rgba(83, 225, 255, 0.12), transparent 22%),
-        linear-gradient(180deg, #08101d 0%, #05070d 52%, #02040a 100%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
+        radial-gradient(circle at 14% 12%, rgba(246, 196, 0, 0.18), transparent 24%),
+        radial-gradient(circle at 84% 18%, rgba(255, 217, 90, 0.16), transparent 20%),
+        linear-gradient(180deg, #151515 0%, #090909 54%, #030303 100%);
+      display: grid;
+      place-items: center;
       overflow: hidden;
       position: relative;
     }
@@ -39,117 +36,268 @@
     }
     body::before {
       background:
-        radial-gradient(circle at 50% 0%, rgba(83, 225, 255, 0.08), transparent 28%),
-        linear-gradient(90deg, transparent 0, rgba(83, 225, 255, 0.03) 50%, transparent 100%);
-      filter: blur(20px);
+        radial-gradient(circle at 50% 0%, rgba(255, 217, 90, 0.08), transparent 30%),
+        linear-gradient(90deg, transparent 0, rgba(246, 196, 0, 0.04) 50%, transparent 100%);
+      filter: blur(18px);
     }
     body::after {
       background:
-        repeating-linear-gradient(90deg, transparent 0 39px, rgba(83, 225, 255, 0.03) 39px 40px),
-        repeating-linear-gradient(180deg, transparent 0 39px, rgba(83, 225, 255, 0.03) 39px 40px);
-      opacity: 0.32;
+        repeating-linear-gradient(90deg, transparent 0 35px, rgba(246, 196, 0, 0.03) 35px 36px),
+        repeating-linear-gradient(180deg, transparent 0 35px, rgba(246, 196, 0, 0.03) 35px 36px);
+      opacity: 0.3;
     }
-    .content {
+    .frame {
       position: relative;
       z-index: 1;
+      width: 1080px;
+      height: 510px;
+      border-radius: 36px;
+      border: 1px solid rgba(246, 196, 0, 0.18);
+      background:
+        linear-gradient(135deg, rgba(246, 196, 0, 0.08), rgba(246, 196, 0, 0) 36%),
+        rgba(19, 19, 19, 0.94);
+      box-shadow:
+        0 40px 90px rgba(0, 0, 0, 0.48),
+        inset 0 1px 0 rgba(255, 217, 90, 0.08);
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      overflow: hidden;
+    }
+    .copy {
+      padding: 48px 48px 42px;
       display: flex;
       flex-direction: column;
+      justify-content: space-between;
+    }
+    .eyebrow-row {
+      display: flex;
       align-items: center;
-      gap: 2rem;
-    }
-    .brand-mark {
-      display: inline-grid;
-      place-items: center;
-      width: 220px;
-      height: 220px;
-      border-radius: 999px;
-      background: linear-gradient(145deg, rgba(10, 79, 222, 0.36), rgba(83, 225, 255, 0.14));
-      border: 4px solid rgba(83, 225, 255, 0.22);
-      box-shadow: 0 0 60px rgba(21, 148, 255, 0.4);
-    }
-    .brand-mark svg {
-      width: 160px;
-      height: 160px;
-    }
-    h1 {
-      margin: 0;
-      font-family: "Avenir Next Condensed", "Arial Narrow", "Franklin Gothic Medium", sans-serif;
-      font-size: 5rem;
-      text-transform: uppercase;
-      letter-spacing: 0.15em;
-      text-shadow: 0 0 40px rgba(21, 148, 255, 0.4);
-      color: #ffffff;
+      gap: 14px;
     }
     .eyebrow {
-      display: inline-block;
-      margin-top: -1.5rem;
-      padding: 0.6rem 2rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
       border-radius: 999px;
-      border: 2px solid rgba(83, 225, 255, 0.2);
-      background: rgba(83, 225, 255, 0.08);
-      font-family: "Avenir Next Condensed", "Arial Narrow", "Franklin Gothic Medium", sans-serif;
-      font-size: 1.8rem;
+      border: 1px solid rgba(246, 196, 0, 0.2);
+      background: rgba(255, 217, 90, 0.08);
+      font-family: "Avenir Next Condensed", "Arial Narrow", sans-serif;
+      font-size: 18px;
       font-weight: 700;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: #53e1ff;
+      color: #ffd95a;
     }
-    p {
-      max-width: 900px;
+    .site-pill {
+      border-color: rgba(255, 249, 218, 0.16);
+      background: rgba(255, 255, 255, 0.03);
+      color: #fff2b2;
+    }
+    h1 {
+      margin: 14px 0 0;
+      font-family: "Avenir Next Condensed", "Arial Narrow", "Franklin Gothic Medium", sans-serif;
+      font-size: 96px;
+      font-weight: 700;
+      line-height: 0.92;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #ffffff;
+      text-shadow: 0 0 44px rgba(246, 196, 0, 0.18);
+    }
+    .lede {
+      max-width: 520px;
       margin: 0;
-      font-size: 2.2rem;
-      color: #9cb4d6;
-      line-height: 1.6;
+      font-size: 27px;
+      line-height: 1.35;
+      color: #f2e5ae;
+    }
+    .chips {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 22px;
+    }
+    .chip {
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(246, 196, 0, 0.18);
+      background: rgba(0, 0, 0, 0.22);
+      color: #fff2b2;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .bottom-row {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .mark-wrap {
+      width: 128px;
+      height: 128px;
+      border-radius: 28px;
+      border: 1px solid rgba(246, 196, 0, 0.18);
+      background:
+        radial-gradient(circle at 50% 50%, rgba(246, 196, 0, 0.22), rgba(246, 196, 0, 0) 62%),
+        #121212;
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 0 0 1px rgba(255, 217, 90, 0.06);
+    }
+    .mark-wrap svg {
+      width: 82px;
+      height: 82px;
+    }
+    .caption {
+      max-width: 300px;
+      font-size: 20px;
+      line-height: 1.35;
+      color: #dfcb7b;
+    }
+    .panel {
+      padding: 30px 30px 28px 0;
+      display: flex;
+      align-items: stretch;
+    }
+    .panel-card {
+      flex: 1;
+      border-left: 1px solid rgba(246, 196, 0, 0.14);
+      background:
+        linear-gradient(180deg, rgba(246, 196, 0, 0.07), rgba(246, 196, 0, 0) 26%),
+        rgba(30, 30, 30, 0.84);
+      padding: 30px 30px 26px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .stack {
+      display: grid;
+      gap: 16px;
+    }
+    .metric {
+      padding: 16px 16px 14px;
+      border-radius: 22px;
+      border: 1px solid rgba(246, 196, 0, 0.16);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .metric strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #ffd95a;
+      font-size: 16px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .metric span {
+      display: block;
+      color: #fff6d1;
+      font-size: 21px;
+      line-height: 1.25;
+    }
+    .signal {
+      position: relative;
+      height: 100px;
+      border-radius: 24px;
+      border: 1px solid rgba(246, 196, 0, 0.16);
+      background:
+        linear-gradient(180deg, rgba(246, 196, 0, 0.05), rgba(246, 196, 0, 0) 100%),
+        #111111;
+      overflow: hidden;
+    }
+    .signal::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(90deg, transparent 0 47px, rgba(246, 196, 0, 0.05) 47px 48px),
+        repeating-linear-gradient(180deg, transparent 0 29px, rgba(246, 196, 0, 0.05) 29px 30px);
+    }
+    .signal svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+      color: #d2bd6e;
+      font-size: 16px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
   </style>
 </head>
 <body>
-  <div class="content">
-    <div class="brand-mark">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Ninja icon">
-        <defs>
-          <linearGradient id="edge" x1="0%" x2="100%" y1="0%" y2="100%">
-            <stop offset="0%" stop-color="#53E1FF"/>
-            <stop offset="100%" stop-color="#1489FF"/>
-          </linearGradient>
-          <linearGradient id="maskGrad" x1="0%" x2="0%" y1="0%" y2="100%">
-            <stop offset="0%" stop-color="#1A2436"/>
-            <stop offset="100%" stop-color="#05070D"/>
-          </linearGradient>
-          <radialGradient id="eyeGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#53E1FF" stop-opacity="0.8"/>
-            <stop offset="100%" stop-color="#1489FF" stop-opacity="0"/>
-          </radialGradient>
-          <filter id="neon" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="3" result="blur"/>
-            <feMerge>
-              <feMergeNode in="blur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
-        </defs>
-        <rect x="8" y="8" width="112" height="112" rx="28" fill="#05070D" stroke="url(#edge)" stroke-width="4"/>
-        <!-- Ninja hood background -->
-        <path d="M64 22 C34 22, 22 45, 22 70 C22 100, 38 108, 64 108 C90 108, 106 100, 106 70 C106 45, 94 22, 64 22 Z" fill="#0C1220" stroke="#141C2C" stroke-width="2"/>
-        <!-- Face opening mask -->
-        <path d="M30 52 C45 44, 83 44, 98 52 C104 55, 106 63, 100 68 C85 78, 43 78, 28 68 C22 63, 24 55, 30 52 Z" fill="#05070D" stroke="#1594FF" stroke-width="1.5" stroke-opacity="0.6"/>
-        <!-- Lower mask fabric overlay -->
-        <path d="M28 68 C43 78, 85 78, 100 68 C106 74, 102 96, 64 104 C26 96, 22 74, 28 68 Z" fill="url(#maskGrad)"/>
-        <!-- Glowing Eyes -->
-        <g filter="url(#neon)">
-          <!-- Left Eye -->
-          <path d="M42 58 L52 61 L44 63 Z" fill="#F4F8FF"/>
-          <!-- Right Eye -->
-          <path d="M86 58 L76 61 L84 63 Z" fill="#F4F8FF"/>
-        </g>
-        <!-- Headband trails -->
-        <path d="M24 60 C14 55, 6 65, 14 75 C18 80, 24 78, 26 70" fill="none" stroke="#1594FF" stroke-width="2" stroke-linecap="round"/>
-        <path d="M22 64 C12 60, 10 75, 18 85" fill="none" stroke="#1594FF" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.6"/>
-      </svg>
-    </div>
-    <h1>UNAGI.NINJA</h1>
-    <div class="eyebrow">Stealth Bluetooth Recon</div>
-    <p>Local-first Android app for spotting nearby Bluetooth devices, keeping a durable background-free history.</p>
-  </div>
+  <main class="frame">
+    <section class="copy">
+      <div>
+        <div class="eyebrow-row">
+          <div class="eyebrow">Android SDR Recon</div>
+          <div class="eyebrow site-pill">spider.surf</div>
+        </div>
+        <h1>Spider</h1>
+        <p class="lede">Track TPMS traffic with RTL-SDR, HackRF One, and rtl_433 bridge inputs.</p>
+        <div class="chips">
+          <div class="chip">RTL-SDR</div>
+          <div class="chip">HackRF One</div>
+          <div class="chip">Local History</div>
+        </div>
+      </div>
+
+      <div class="bottom-row">
+        <div class="mark-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Spider signal icon">
+            <defs>
+              <linearGradient id="ring" x1="0%" x2="100%" y1="0%" y2="100%">
+                <stop offset="0%" stop-color="#FFD95A"/>
+                <stop offset="100%" stop-color="#F6C400"/>
+              </linearGradient>
+            </defs>
+            <circle cx="64" cy="64" r="44" fill="none" stroke="url(#ring)" stroke-width="3.5" stroke-opacity="0.75"/>
+            <circle cx="64" cy="64" r="28" fill="none" stroke="url(#ring)" stroke-width="2.5" stroke-opacity="0.45"/>
+            <path d="M64 16 V112 M16 64 H112 M28 28 L100 100 M100 28 L28 100" stroke="#F6C400" stroke-opacity="0.22" stroke-width="2"/>
+            <circle cx="64" cy="64" r="7" fill="#FFD95A"/>
+            <path d="M64 39 L74 53 H54 Z" fill="#101010" stroke="#FFD95A" stroke-width="2"/>
+            <path d="M64 89 L54 75 H74 Z" fill="#101010" stroke="#FFD95A" stroke-width="2"/>
+            <path d="M39 64 L53 54 V74 Z" fill="#101010" stroke="#FFD95A" stroke-width="2"/>
+            <path d="M89 64 L75 74 V54 Z" fill="#101010" stroke="#FFD95A" stroke-width="2"/>
+          </svg>
+        </div>
+        <div class="caption">On-device TPMS sightings, raw payload exports, and SDR diagnostics. No Bluetooth stack.</div>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="panel-card">
+        <div class="stack">
+          <div class="metric">
+            <strong>USB Capture</strong>
+            <span>RTL-SDR and HackRF One both work in direct USB mode.</span>
+          </div>
+          <div class="metric">
+            <strong>Decoded Traffic</strong>
+            <span>TPMS records, signal strength, battery hints, and raw JSON export.</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="signal">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 122" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M0 88 C24 88, 26 34, 48 34 C72 34, 78 96, 100 96 C124 96, 130 24, 152 24 C176 24, 182 96, 204 96 C228 96, 234 48, 256 48 C280 48, 286 92, 308 92 C332 92, 338 20, 360 20 C384 20, 390 70, 420 70" fill="none" stroke="#FFD95A" stroke-width="4" stroke-linecap="round"/>
+              <path d="M0 98 C26 98, 28 62, 48 62 C74 62, 76 106, 100 106 C126 106, 128 54, 152 54 C178 54, 180 104, 204 104 C230 104, 232 74, 256 74 C282 74, 284 108, 308 108 C334 108, 336 46, 360 46 C386 46, 388 90, 420 90" fill="none" stroke="#F6C400" stroke-opacity="0.26" stroke-width="2.4" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="foot">
+            <span>TPMS 315 / 433.92</span>
+            <span>rtl_433 bridge</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
 </body>
 </html>
