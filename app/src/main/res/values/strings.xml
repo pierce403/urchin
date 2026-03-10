@@ -72,4 +72,30 @@
   <string name="protocol_filter_p25">P25</string>
   <string name="protocol_p25">P25 Radio (136-800 MHz)</string>
   <string name="p25_network_port">OP25 metadata port (default 23456)</string>
+
+  <!-- Alerts -->
+  <string name="alerts">Alerts</string>
+  <string name="alerts_section_title">Alert Rules</string>
+  <string name="alerts_section_detail">Create rules to trigger audio and notification alerts when matching devices are observed.</string>
+  <string name="add_alert">Add alert</string>
+  <string name="add_alert_rule_title">Add alert rule</string>
+  <string name="edit_alert_rule_title">Edit alert rule</string>
+  <string name="save_alert">Save</string>
+  <string name="edit_alert">Edit</string>
+  <string name="delete_alert">Delete</string>
+  <string name="alert_type_label">Match type</string>
+  <string name="alert_emoji_label">Icon</string>
+  <string name="alert_sound_label">Sound</string>
+  <string name="alert_rule_added">Alert rule added.</string>
+  <string name="alert_rule_updated">Alert rule updated.</string>
+  <string name="alert_rule_deleted">Alert rule deleted.</string>
+  <string name="alert_invalid_name">Enter a device name or model to match.</string>
+  <string name="alert_invalid_id">Enter a valid sensor ID, ICAO hex, CAP code, or unit ID.</string>
+  <string name="alert_invalid_protocol">Enter a valid protocol: tpms, pocsag, adsb, or p25.</string>
+  <string name="no_alert_rules">No alert rules yet. Tap + to create one.</string>
+  <string name="alert_notification_channel_name">Device Alerts</string>
+  <string name="alert_notification_channel_description">Audio and visual alerts when matching SDR devices are observed.</string>
+  <string name="notification_permission_title">Notification Permission</string>
+  <string name="notification_permission_detail">Spider needs notification permission to show alert notifications when matching devices are observed.</string>
+  <string name="allow_notifications">Allow notifications</string>
 </resources>

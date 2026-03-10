@@ -1,7 +1,14 @@
 package guru.urchin.scan
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import guru.urchin.alerts.AlertObservation
+import guru.urchin.alerts.DeviceAlertMatcher
+import guru.urchin.alerts.DeviceAlertNotifier
+import guru.urchin.data.AlertRuleEntity
+import guru.urchin.data.AlertRuleRepository
 import guru.urchin.data.DeviceObservation
 import guru.urchin.data.DeviceRepository
 import guru.urchin.util.DebugLog
@@ -10,8 +17,23 @@ import org.json.JSONObject
 
 class ObservationRecorder(
   private val repository: DeviceRepository,
-  private val scope: CoroutineScope
+  private val scope: CoroutineScope,
+  private val alertRuleRepository: AlertRuleRepository? = null,
+  private val alertNotifier: DeviceAlertNotifier? = null
 ) {
+  private var alertRules: List<AlertRuleEntity> = emptyList()
+  private val firedAlertKeys = mutableSetOf<String>()
+
+  init {
+    alertRuleRepository?.observeEnabledRules()
+      ?.onEach { alertRules = it }
+      ?.launchIn(scope)
+  }
+
+  fun resetAlertDedup() {
+    firedAlertKeys.clear()
+  }
+
   fun record(input: ObservationInput) {
     val key = DeviceKey.from(input)
     ScanDiagnosticsStore.update {
@@ -31,8 +53,31 @@ class ObservationRecorder(
       protocolType = input.protocolType
     )
 
+    evaluateAlerts(input, key)
+
     scope.launch {
       repository.recordObservation(observation)
+    }
+  }
+
+  private fun evaluateAlerts(input: ObservationInput, deviceKey: String) {
+    if (alertNotifier == null || alertRules.isEmpty()) return
+
+    val sensorId = input.tpmsSensorId ?: input.adsbIcao ?: input.pocsagCapCode ?: input.p25UnitId
+    val alertObs = AlertObservation(
+      deviceKey = deviceKey,
+      displayName = input.name ?: input.tpmsModel ?: input.adsbCallsign,
+      sensorId = sensorId,
+      protocolType = input.protocolType,
+      source = input.source
+    )
+
+    val matches = DeviceAlertMatcher.findMatches(alertRules, alertObs)
+    for (match in matches) {
+      val alertKey = "${match.rule.id}:$deviceKey"
+      if (firedAlertKeys.add(alertKey)) {
+        alertNotifier.notifyMatch(match, alertObs)
+      }
     }
   }
 

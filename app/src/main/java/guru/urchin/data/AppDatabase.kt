@@ -10,14 +10,16 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(
   entities = [
     DeviceEntity::class,
-    SightingEntity::class
+    SightingEntity::class,
+    AlertRuleEntity::class
   ],
-  version = 3,
+  version = 4,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
   abstract fun deviceDao(): DeviceDao
   abstract fun sightingDao(): SightingDao
+  abstract fun alertRuleDao(): AlertRuleDao
 
   companion object {
     val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -35,13 +37,29 @@ abstract class AppDatabase : RoomDatabase() {
       }
     }
 
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+      override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+          "CREATE TABLE IF NOT EXISTS alert_rules (" +
+            "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+            "matchType TEXT NOT NULL, " +
+            "matchPattern TEXT NOT NULL, " +
+            "displayValue TEXT NOT NULL, " +
+            "emoji TEXT NOT NULL, " +
+            "soundPreset TEXT NOT NULL, " +
+            "enabled INTEGER NOT NULL, " +
+            "createdAt INTEGER NOT NULL)"
+        )
+      }
+    }
+
     fun build(context: Context): AppDatabase {
       return Room.databaseBuilder(
         context.applicationContext,
         AppDatabase::class.java,
         "urchin.db"
       )
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
         .fallbackToDestructiveMigration()
         .build()
     }

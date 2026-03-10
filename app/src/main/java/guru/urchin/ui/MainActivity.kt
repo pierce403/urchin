@@ -169,6 +169,10 @@ class MainActivity : AppCompatActivity() {
         }
         true
       }
+      R.id.menu_alerts -> {
+        startActivity(android.content.Intent(this, AlertsActivity::class.java))
+        true
+      }
       R.id.menu_diagnostics -> {
         startActivity(android.content.Intent(this, DiagnosticsActivity::class.java))
         true

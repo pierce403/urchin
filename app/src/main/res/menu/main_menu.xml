@@ -5,6 +5,10 @@
       android:title="@string/scan_start"
       app:showAsAction="always|withText" />
   <item
+      android:id="@+id/menu_alerts"
+      android:title="@string/alerts"
+      app:showAsAction="never" />
+  <item
       android:id="@+id/menu_diagnostics"
       android:title="@string/diagnostics"
       app:showAsAction="never" />
