@@ -16,16 +16,23 @@ class P25Process(private val context: Context) {
   private var process: Process? = null
   private var readerJob: Job? = null
   private var errorReaderJob: Job? = null
+  private var monitorJob: Job? = null
+  private var usbRelay: RtlSdrUsbRelay? = null
+  @Volatile private var lastStderrLine: String? = null
+  @Volatile private var stopRequested: Boolean = false
 
   fun start(
     scope: CoroutineScope,
     hardwareProfile: SdrHardwareProfile,
+    usbDeviceId: Int?,
     frequencyHz: Int,
     gain: Int?,
     onReading: (SdrReading.P25) -> Unit,
     onError: (String) -> Unit
   ) {
     stop()
+    stopRequested = false
+    lastStderrLine = null
     val status = SdrRuntimeInspector.p25ScannerStatus(context)
     if (!status.exists) {
       DebugLog.log(status.missingMessage(), level = android.util.Log.ERROR)
@@ -33,6 +40,18 @@ class P25Process(private val context: Context) {
       return
     }
     val binary = File(requireNotNull(status.resolvedLocation))
+    val relay = try {
+      if (hardwareProfile.rtl433DeviceArg == "driver=rtlsdr" && usbDeviceId != null) {
+        RtlSdrUsbRelay.open(context, usbDeviceId)
+      } else {
+        null
+      }
+    } catch (e: Exception) {
+      val message = e.message ?: "Failed to prepare Android USB relay for p25_scanner."
+      DebugLog.log(message, level = android.util.Log.ERROR, throwable = e)
+      onError(message)
+      return
+    }
 
     val args = buildList {
       add(binary.absolutePath)
@@ -42,9 +61,14 @@ class P25Process(private val context: Context) {
 
     try {
       DebugLog.log("Starting p25_scanner: ${args.joinToString(" ")}")
-      val proc = ProcessBuilder(args)
+      val proc = ProcessBuilder(args).apply {
+        relay?.let {
+          environment()["URCHIN_RTLSDR_FD"] = it.fd.toString()
+        }
+      }
         .redirectErrorStream(false)
         .start()
+      usbRelay = relay
       process = proc
 
       readerJob = scope.launch(Dispatchers.IO) {
@@ -70,6 +94,7 @@ class P25Process(private val context: Context) {
           BufferedReader(InputStreamReader(proc.errorStream)).use { reader ->
             while (isActive) {
               val line = reader.readLine() ?: break
+              lastStderrLine = line
               DebugLog.log("p25_scanner stderr: $line")
             }
           }
@@ -77,19 +102,38 @@ class P25Process(private val context: Context) {
           // Ignore stderr read errors
         }
       }
+
+      monitorJob = scope.launch(Dispatchers.IO) {
+        val exitCode = proc.waitFor()
+        if (stopRequested || process !== proc) return@launch
+        val detail = lastStderrLine?.let { ": $it" } ?: ""
+        val message = "p25_scanner exited with code $exitCode$detail"
+        DebugLog.log(message, level = android.util.Log.ERROR)
+        withContext(Dispatchers.Main) {
+          if (!stopRequested && process === proc) {
+            onError(message)
+          }
+        }
+      }
     } catch (e: Exception) {
+      relay?.close()
       DebugLog.log("Failed to start p25_scanner: ${e.message}", level = android.util.Log.ERROR)
       onError("Failed to start P25 scanner: ${e.message}")
     }
   }
 
   fun stop() {
+    stopRequested = true
+    monitorJob?.cancel()
+    monitorJob = null
     readerJob?.cancel()
     readerJob = null
     errorReaderJob?.cancel()
     errorReaderJob = null
     process?.destroy()
     process = null
+    usbRelay?.close()
+    usbRelay = null
   }
 
   val isRunning: Boolean

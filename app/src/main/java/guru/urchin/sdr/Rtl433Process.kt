@@ -15,20 +15,47 @@ class Rtl433Process(private val context: Context) {
   private var process: Process? = null
   private var readerJob: Job? = null
   private var errorReaderJob: Job? = null
+  private var monitorJob: Job? = null
+  private var usbRelay: RtlSdrUsbRelay? = null
+  @Volatile private var lastStderrLine: String? = null
+  @Volatile private var readingCount: Int = 0
+  @Volatile private var stopRequested: Boolean = false
 
   fun start(
     scope: CoroutineScope,
     hardwareProfile: SdrHardwareProfile,
+    usbDeviceId: Int?,
     frequencyHz: Int,
     gain: Int?,
     onReading: (SdrReading) -> Unit,
     onError: (String) -> Unit
   ) {
     stop()
+    stopRequested = false
+    lastStderrLine = null
+    readingCount = 0
+    if (hardwareProfile.rtl433DeviceArg == "driver=hackrf") {
+      val message = "HackRF USB mode is not bundled in this APK. Use Network bridge for HackRF capture."
+      DebugLog.log(message, level = android.util.Log.ERROR)
+      onError(message)
+      return
+    }
     val binary = try {
       Rtl433BinaryInstaller.ensureInstalled(context)
     } catch (e: Exception) {
       val message = e.message ?: "Failed to install bundled rtl_433."
+      DebugLog.log(message, level = android.util.Log.ERROR, throwable = e)
+      onError(message)
+      return
+    }
+    val relay = try {
+      if (hardwareProfile.rtl433DeviceArg == "driver=rtlsdr" && usbDeviceId != null) {
+        RtlSdrUsbRelay.open(context, usbDeviceId)
+      } else {
+        null
+      }
+    } catch (e: Exception) {
+      val message = e.message ?: "Failed to prepare Android USB relay for rtl_433."
       DebugLog.log(message, level = android.util.Log.ERROR, throwable = e)
       onError(message)
       return
@@ -48,9 +75,14 @@ class Rtl433Process(private val context: Context) {
 
     try {
       DebugLog.log("Starting rtl_433: ${args.joinToString(" ")}")
-      val proc = ProcessBuilder(args)
+      val proc = ProcessBuilder(args).apply {
+        relay?.let {
+          environment()["URCHIN_RTLSDR_FD"] = it.fd.toString()
+        }
+      }
         .redirectErrorStream(false)
         .start()
+      usbRelay = relay
       process = proc
 
       readerJob = scope.launch(Dispatchers.IO) {
@@ -60,6 +92,7 @@ class Rtl433Process(private val context: Context) {
               val line = reader.readLine() ?: break
               val reading = Rtl433JsonParser.parse(line)
               if (reading != null) {
+                readingCount += 1
                 withContext(Dispatchers.Main) { onReading(reading) }
               }
             }
@@ -76,6 +109,7 @@ class Rtl433Process(private val context: Context) {
           BufferedReader(InputStreamReader(proc.errorStream)).use { reader ->
             while (isActive) {
               val line = reader.readLine() ?: break
+              lastStderrLine = line
               DebugLog.log("rtl_433 stderr: $line")
             }
           }
@@ -83,19 +117,42 @@ class Rtl433Process(private val context: Context) {
           // Ignore stderr read errors
         }
       }
+
+      monitorJob = scope.launch(Dispatchers.IO) {
+        val exitCode = proc.waitFor()
+        if (stopRequested || process !== proc) return@launch
+        val detail = lastStderrLine?.let { ": $it" } ?: ""
+        val message = if (readingCount == 0) {
+          "rtl_433 exited with code $exitCode before producing readings$detail"
+        } else {
+          "rtl_433 exited with code $exitCode$detail"
+        }
+        DebugLog.log(message, level = android.util.Log.ERROR)
+        withContext(Dispatchers.Main) {
+          if (!stopRequested && process === proc) {
+            onError(message)
+          }
+        }
+      }
     } catch (e: Exception) {
+      relay?.close()
       DebugLog.log("Failed to start rtl_433: ${e.message}", level = android.util.Log.ERROR)
       onError("Failed to start rtl_433: ${e.message}")
     }
   }
 
   fun stop() {
+    stopRequested = true
+    monitorJob?.cancel()
+    monitorJob = null
     readerJob?.cancel()
     readerJob = null
     errorReaderJob?.cancel()
     errorReaderJob = null
     process?.destroy()
     process = null
+    usbRelay?.close()
+    usbRelay = null
   }
 
   val isRunning: Boolean

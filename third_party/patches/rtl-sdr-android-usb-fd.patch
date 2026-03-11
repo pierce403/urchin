@@ -1,0 +1,160 @@
+diff --git a/src/librtlsdr.c b/src/librtlsdr.c
+index c9e43a1..f1873bc 100644
+--- a/src/librtlsdr.c
++++ b/src/librtlsdr.c
+@@ -127,6 +127,24 @@ void rtlsdr_set_gpio_bit(rtlsdr_dev_t *dev, uint8_t gpio, int val);
+ static int rtlsdr_set_if_freq(rtlsdr_dev_t *dev, uint32_t freq);
+ 
+ /* generic tuner interface functions, shall be moved to the tuner implementations */
++#if defined(__ANDROID__)
++static int urchin_android_wrapped_fd(void)
++{
++	const char *fd_env = getenv("URCHIN_RTLSDR_FD");
++	char *end = NULL;
++	long fd;
++
++	if (!fd_env || !*fd_env)
++		return -1;
++
++	fd = strtol(fd_env, &end, 10);
++	if (!end || *end != '\0' || fd < 0 || fd > INT_MAX)
++		return -1;
++
++	return (int)fd;
++}
++#endif
++
+ int e4000_init(void *dev) {
+ 	rtlsdr_dev_t* devt = (rtlsdr_dev_t*)dev;
+ 	devt->e4k_s.i2c_addr = E4K_I2C_ADDR;
+@@ -1296,6 +1314,10 @@ static rtlsdr_dongle_t *find_known_device(uint16_t vid, uint16_t pid)
+ 
+ uint32_t rtlsdr_get_device_count(void)
+ {
++#if defined(__ANDROID__)
++	if (urchin_android_wrapped_fd() >= 0)
++		return 1;
++#endif
+ 	int i,r;
+ 	libusb_context *ctx;
+ 	libusb_device **list;
+@@ -1325,6 +1347,10 @@ uint32_t rtlsdr_get_device_count(void)
+ 
+ const char *rtlsdr_get_device_name(uint32_t index)
+ {
++#if defined(__ANDROID__)
++	if (urchin_android_wrapped_fd() >= 0)
++		return index == 0 ? "RTL-SDR via Android USB" : "";
++#endif
+ 	int i,r;
+ 	libusb_context *ctx;
+ 	libusb_device **list;
+@@ -1365,6 +1391,19 @@ const char *rtlsdr_get_device_name(uint32_t index)
+ int rtlsdr_get_device_usb_strings(uint32_t index, char *manufact,
+ 				   char *product, char *serial)
+ {
++#if defined(__ANDROID__)
++	if (urchin_android_wrapped_fd() >= 0) {
++		if (index != 0)
++			return -1;
++		if (manufact)
++			snprintf(manufact, 256, "%s", "Android");
++		if (product)
++			snprintf(product, 256, "%s", "RTL-SDR");
++		if (serial)
++			snprintf(serial, 256, "%s", "android-fd");
++		return 0;
++	}
++#endif
+ 	int r = -2;
+ 	int i;
+ 	libusb_context *ctx;
+@@ -1446,13 +1485,18 @@ int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index)
+ {
+ 	int r;
+ 	int i;
+-	libusb_device **list;
++	libusb_device **list = NULL;
+ 	rtlsdr_dev_t *dev = NULL;
+ 	libusb_device *device = NULL;
+ 	uint32_t device_count = 0;
+ 	struct libusb_device_descriptor dd;
+ 	uint8_t reg;
+ 	ssize_t cnt;
++#if defined(__ANDROID__)
++	int wrapped_fd = urchin_android_wrapped_fd();
++#else
++	int wrapped_fd = -1;
++#endif
+ 
+ 	dev = malloc(sizeof(rtlsdr_dev_t));
+ 	if (NULL == dev)
+@@ -1461,6 +1505,16 @@ int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index)
+ 	memset(dev, 0, sizeof(rtlsdr_dev_t));
+ 	memcpy(dev->fir, fir_default, sizeof(fir_default));
+ 
++#if defined(__ANDROID__)
++	if (wrapped_fd >= 0) {
++		r = libusb_set_option(NULL, LIBUSB_OPTION_NO_DEVICE_DISCOVERY);
++		if (r < 0) {
++			fprintf(stderr, "libusb_set_option(NO_DEVICE_DISCOVERY) error %d\n", r);
++			free(dev);
++			return -1;
++		}
++	}
++#endif
+ 	r = libusb_init(&dev->ctx);
+ 	if(r < 0){
+ 		free(dev);
+@@ -1469,6 +1523,18 @@ int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index)
+ 
+ 	dev->dev_lost = 1;
+ 
++#if defined(__ANDROID__)
++	if (wrapped_fd >= 0) {
++		r = libusb_wrap_sys_device(dev->ctx, (intptr_t)wrapped_fd, &dev->devh);
++		if (r < 0) {
++			fprintf(stderr, "libusb_wrap_sys_device error %d\n", r);
++			goto err;
++		}
++		fprintf(stderr, "Using Android UsbManager relay fd %d\n", wrapped_fd);
++		goto device_opened;
++	}
++#endif
++
+ 	cnt = libusb_get_device_list(dev->ctx, &list);
+ 
+ 	for (i = 0; i < cnt; i++) {
+@@ -1493,7 +1559,8 @@ int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index)
+ 
+ 	r = libusb_open(device, &dev->devh);
+ 	if (r < 0) {
+-		libusb_free_device_list(list, 1);
++		if (list)
++			libusb_free_device_list(list, 1);
+ 		fprintf(stderr, "usb_open error %d\n", r);
+ 		if(r == LIBUSB_ERROR_ACCESS)
+ 			fprintf(stderr, "Please fix the device permissions, e.g. "
+@@ -1501,8 +1568,12 @@ int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index)
+ 		goto err;
+ 	}
+ 
+-	libusb_free_device_list(list, 1);
++	if (list) {
++		libusb_free_device_list(list, 1);
++		list = NULL;
++	}
+ 
++device_opened:
+ 	if (libusb_kernel_driver_active(dev->devh, 0) == 1) {
+ 		dev->driver_active = 1;
+ 
+@@ -1643,6 +1714,8 @@ found:
+ 
+ 	return 0;
+ err:
++	if (list)
++		libusb_free_device_list(list, 1);
+ 	if (dev) {
+ 		if (dev->devh)
+ 			libusb_close(dev->devh);

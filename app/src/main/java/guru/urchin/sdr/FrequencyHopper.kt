@@ -18,6 +18,7 @@ class FrequencyHopper(
   private val context: Context,
   private val frequencies: List<Int>,
   private val dwellTimeMs: Long = 5000L,
+  private val usbDeviceId: Int?,
   private val hardwareProfile: SdrHardwareProfile,
   private val gain: Int?,
   private val onReading: (SdrReading) -> Unit,
@@ -69,6 +70,7 @@ class FrequencyHopper(
     process.start(
       scope = scope,
       hardwareProfile = hardwareProfile,
+      usbDeviceId = usbDeviceId,
       frequencyHz = frequencyHz,
       gain = gain,
       onReading = onReading,

@@ -62,13 +62,15 @@ object DiagnosticsReportBuilder {
       } else {
         listOf(
           "USB mode is selected.",
-          "→ Connect an RTL-SDR (0BDA:2838 / 0BDA:2832) or HackRF One (1D50:6089) via a USB OTG adapter.",
+          "→ Connect an RTL-SDR (0BDA:2838 / 0BDA:2832) via a USB OTG adapter.",
+          "→ HackRF capture currently uses Network bridge mode in this build.",
           "→ Then tap Start to begin scanning."
         )
       }
       SdrState.UsbNotConnected -> listOf(
         "No supported USB SDR was detected.",
-        "→ Plug in an RTL-SDR or HackRF One via a USB OTG adapter.",
+        "→ Plug in an RTL-SDR via a USB OTG adapter.",
+        "→ HackRF capture currently uses Network bridge mode in this build.",
         "→ If already connected, try unplugging and replugging.",
         "→ Alternatively, switch to Network mode and run rtl_433 on a connected host."
       )
@@ -82,6 +84,8 @@ object DiagnosticsReportBuilder {
         val hint = when {
           "not bundled" in msg.lowercase() || "not found" in msg.lowercase() || "binary" in msg.lowercase() ->
             "→ The required native capture binary is missing from this APK. See the rtl_433 Android setup guide and the Native tools section below."
+          "hackrf" in msg.lowercase() ->
+            "→ This APK only supports HackRF through Network bridge mode right now."
           "permission" in msg.lowercase() ->
             "→ Check that USB permission was granted and retry."
           "connect" in msg.lowercase() || "refused" in msg.lowercase() ->
@@ -96,7 +100,7 @@ object DiagnosticsReportBuilder {
         if (hw != null) {
           val tipLines = mutableListOf("Active: $hw")
           if ("hackrf" in hw.lowercase()) {
-            tipLines.add("→ HackRF One: wide frequency range, frequency hopping enabled.")
+            tipLines.add("→ HackRF USB capture is not bundled in this APK; use Network bridge mode instead.")
           } else if ("rtl" in hw.lowercase()) {
             tipLines.add("→ RTL-SDR: set gain manually if auto-gain gives poor results.")
           }

@@ -41,8 +41,8 @@ data class SdrDeviceHandle(
 class RealUsbDetector(private val context: android.content.Context) : UsbDetector {
 
   override fun findAllDevices(): List<SdrDeviceHandle> =
-    SdrUsbDetector.findAllSdrDevices(context).mapIndexed { index, device ->
-      SdrDeviceHandle(id = index, profile = device.profile)
+    SdrUsbDetector.findAllSdrDevices(context).map { device ->
+      SdrDeviceHandle(id = device.usbDevice.deviceId, profile = device.profile)
     }
 
   override fun allPermitted(): Boolean {

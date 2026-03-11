@@ -243,6 +243,7 @@ class SdrController(
               source = SdrPreferences.SdrSource.USB,
               frequencyHz = freq,
               gain = SdrPreferences.gain(context),
+              usbDeviceId = device.id,
               hardwareProfile = device.profile
             ),
             context = context
@@ -264,6 +265,7 @@ class SdrController(
         val hopper = FrequencyHopper(
           context = context,
           frequencies = frequencies,
+          usbDeviceId = device.id,
           hardwareProfile = device.profile,
           gain = SdrPreferences.gain(context),
           onReading = ::handleSdrReading,
@@ -278,6 +280,7 @@ class SdrController(
         rtl433Process.start(
           scope = scope,
           hardwareProfile = device.profile,
+          usbDeviceId = device.id,
           frequencyHz = frequencies.firstOrNull() ?: SdrPreferences.frequencyHz(context),
           gain = SdrPreferences.gain(context),
           onReading = ::handleSdrReading,
@@ -297,6 +300,7 @@ class SdrController(
       process.start(
         scope = scope,
         hardwareProfile = p25Dongle.profile,
+        usbDeviceId = p25Dongle.id,
         frequencyHz = 851_000_000,
         gain = SdrPreferences.gain(context),
         onReading = { reading -> handleSdrReading(reading) },

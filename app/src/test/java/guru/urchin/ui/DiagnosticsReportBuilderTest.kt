@@ -60,7 +60,7 @@ class DiagnosticsReportBuilderTest {
   fun `scanning with hackrf shows hackrf tip`() {
     val report = build(SdrState.Scanning, snapshot(hardwareLabel = "HackRF One"))
     assertTrue(report.contains("HackRF One"))
-    assertTrue(report.contains("frequency hopping"))
+    assertTrue(report.contains("Network bridge"))
   }
 
   @Test

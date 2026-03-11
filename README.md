@@ -3,7 +3,6 @@
 Urchin is an Android SDR app for local RF reconnaissance. It captures and displays observations from four radio protocols — TPMS, POCSAG, ADS-B, and P25 — using either:
 
 - A USB-attached RTL-SDR dongle
-- A USB-attached HackRF One
 - Network bridges streaming newline-delimited JSON over TCP
 
 The app stores observations locally, shows live and historical sensor sightings, exposes raw JSON for export, and uses a yellow-on-black UI theme.
@@ -25,7 +24,7 @@ The project landing page is intended for `https://urchin.guru/`.
 
 - JDK 17
 - Android SDK with API 35
-- `./scripts/setup-third-party.sh` before `./gradlew assembleDebug` when you need USB/on-device SDR binaries
+- `./scripts/setup-third-party.sh` before `./gradlew assembleDebug` when you need USB/on-device SDR binaries; it clones the SDR deps and reapplies Urchin's tracked Android patches
 - `./gradlew assembleDebug`
 - `./gradlew installDebug`
 - `./gradlew testDebugUnitTest`
@@ -44,7 +43,7 @@ The current debug build can be staged from:
 
 The site download is intended to point at:
 
-- `downloads/urchin-v0.2.2-debug.apk`
+- `downloads/urchin-v0.2.3-debug.apk`
 
 ## Emulator setup
 
@@ -52,8 +51,8 @@ See [docs/EMULATOR_SETUP.md](docs/EMULATOR_SETUP.md) for creating an AVD, launch
 
 ## SDR notes
 
-- USB mode auto-detects supported hardware by VID/PID (RTL2832U dongles and HackRF One).
-- USB mode now bundles `rtl_433` as an APK asset and extracts it into app-private storage on first launch, so the app no longer depends on `nativeLibraryDir` for that executable.
+- USB mode auto-detects supported hardware by VID/PID. RTL-SDR dongles are supported for on-device capture; HackRF currently uses Network bridge mode in this APK.
+- USB mode now bundles `rtl_433` as an APK asset, extracts it into app-private storage on first launch, and relays the Android UsbManager file descriptor into the subprocess so unrooted RTL-SDR USB capture can start.
 - Diagnostics includes the live USB inventory with VID/PID/permission state plus the packaged native-tool paths for `rtl_433`, `dump1090`, and `p25_scanner`.
 - When multiple USB SDR devices are connected, Urchin assigns one dongle per frequency. With a single dongle, it uses frequency hopping.
 - Network mode connects to per-protocol bridges on configurable ports. A Raspberry Pi running [sdr-pi](https://github.com/ingmarvg/sdr-pi) can host your SDR dongles and stream observation data to the app over TCP:

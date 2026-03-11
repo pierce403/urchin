@@ -309,12 +309,12 @@
           <h1>Urchin tracks TPMS traffic, not Bluetooth.</h1>
           <p class="lead">
             Urchin is a local-first Android app for capturing TPMS observations from
-            <code>rtl_433</code>. It supports RTL-SDR, HackRF One, and network-fed
-            <code>rtl_433</code> JSON, then keeps the sightings, raw payloads, and
-            sensor history on-device.
+            <code>rtl_433</code>. It supports RTL-SDR USB capture plus network-fed
+            <code>rtl_433</code> JSON, including HackRF-backed feeds, then keeps the
+            sightings, raw payloads, and sensor history on-device.
           </p>
           <div class="cta-row">
-            <a class="button button-primary" href="downloads/urchin-v0.2.2-debug.apk" download>Download Debug APK</a>
+            <a class="button button-primary" href="downloads/urchin-v0.2.3-debug.apk" download>Download Debug APK</a>
             <a class="button button-secondary" href="#build">CLI Build Steps</a>
           </div>
         </div>
@@ -322,7 +322,7 @@
           <div class="stack">
             <div class="metric">
               <strong>USB Capture</strong>
-              RTL-SDR dongles and HackRF One are both recognized in USB mode.
+              RTL-SDR USB capture now relays Android's granted device fd into bundled rtl_433.
             </div>
             <div class="metric">
               <strong>Bridge Mode</strong>
@@ -354,7 +354,7 @@
             <h2>Hardware</h2>
             <ul>
               <li>RTL2832U / RTL-SDR USB dongles</li>
-              <li>HackRF One over USB</li>
+              <li>HackRF-hosted rtl_433 bridge over TCP</li>
               <li>Remote <code>rtl_433</code> bridge over TCP</li>
               <li>315 MHz and 433.92 MHz presets</li>
             </ul>

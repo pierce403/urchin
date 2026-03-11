@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3 - 2026-03-11
+
+- Routed Android UsbManager-granted RTL-SDR access into bundled `rtl_433` and `p25_scanner` subprocesses by relaying an inherited USB file descriptor into `librtlsdr`.
+- Surface subprocess exits back into Urchin's error state instead of leaving USB scans stuck at `0 live sensors` with only recent log lines.
+- Clarified that this APK's on-device USB path is RTL-SDR-only for now; HackRF capture still uses Network bridge mode.
+
 ## 0.2.2 - 2026-03-11
 
 - Bundled `rtl_433` into the APK as an ABI-specific asset and extract it into app-private storage before launch in USB mode.

@@ -11,6 +11,7 @@ data class SdrChannelConfig(
   val gain: Int?,
   val networkHost: String? = null,
   val networkPort: Int? = null,
+  val usbDeviceId: Int? = null,
   val hardwareProfile: SdrHardwareProfile? = null
 )
 
@@ -49,6 +50,7 @@ class SdrChannel(
         process.start(
           scope = scope,
           hardwareProfile = profile,
+          usbDeviceId = config.usbDeviceId,
           frequencyHz = config.frequencyHz,
           gain = config.gain,
           onReading = onReading,

@@ -50,6 +50,10 @@ storage and marks it executable:
 
 - `<noBackupFilesDir>/sdr-bin/rtl_433-v<versionCode>-<abi>`
 
+On Android, the app also opens the RTL-SDR through `UsbManager`, duplicates the granted file
+descriptor, and relays that fd into the subprocess. This is required for unrooted devices;
+without it, libusb cannot enumerate/open the dongle directly.
+
 Diagnostics reports both the packaged asset path and the extracted on-device path when present.
 
 Before building an APK that should support USB mode locally, populate the SDR sources with:
@@ -141,11 +145,12 @@ through all enabled frequencies.
 
 ## HackRF One notes
 
+- This APK currently supports HackRF through **Network bridge** mode, not on-device USB mode.
+- Run `rtl_433` on a host that can access the HackRF, then point Urchin at that TCP stream.
 - Pass `-d driver=hackrf` to rtl_433 in network mode.
 - HackRF One covers 1 MHz–6 GHz, so TPMS (315/433 MHz), POCSAG (929 MHz),
   and ADS-B (1090 MHz) are all in range.
-- Single-dongle frequency hopping is handled automatically by Urchin when multiple
-  protocols are enabled.
+- Single-dongle frequency hopping is handled by the host-side rtl_433 setup when applicable.
 
 ## RTL-SDR notes
 
