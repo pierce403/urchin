@@ -10,6 +10,9 @@ object SdrPreferences {
   private const val KEY_GAIN = "sdr_gain"
   private const val KEY_NETWORK_HOST = "sdr_network_host"
   private const val KEY_NETWORK_PORT = "sdr_network_port"
+  private const val KEY_PROTOCOLS_ENABLED = "sdr_protocols_enabled"
+  private const val KEY_ADSB_NETWORK_PORT = "sdr_adsb_network_port"
+  private const val KEY_P25_NETWORK_PORT = "sdr_p25_network_port"
 
   private fun prefs(context: Context) =
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -37,7 +40,24 @@ object SdrPreferences {
 
   fun frequencyHz(context: Context): Int = when (frequencyMhz(context)) {
     315 -> 315_000_000
+    1090 -> 1_090_000_000
+    978 -> 978_000_000
+    152 -> 152_480_000
+    157 -> 157_450_000
+    454 -> 454_000_000
+    929 -> 929_612_500
+    931 -> 931_937_500
     else -> 433_920_000
+  }
+
+  fun enabledProtocols(context: Context): Set<String> {
+    val raw = prefs(context).getString(KEY_PROTOCOLS_ENABLED, null)
+    return raw?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.toSet()
+      ?: setOf("tpms")
+  }
+
+  fun setEnabledProtocols(context: Context, protocols: Set<String>) {
+    prefs(context).edit().putString(KEY_PROTOCOLS_ENABLED, protocols.joinToString(",")).apply()
   }
 
   fun gain(context: Context): Int? {
@@ -61,6 +81,20 @@ object SdrPreferences {
 
   fun setNetworkPort(context: Context, port: Int) {
     prefs(context).edit().putInt(KEY_NETWORK_PORT, port).apply()
+  }
+
+  fun adsbNetworkPort(context: Context): Int =
+    prefs(context).getInt(KEY_ADSB_NETWORK_PORT, 30003)
+
+  fun setAdsbNetworkPort(context: Context, port: Int) {
+    prefs(context).edit().putInt(KEY_ADSB_NETWORK_PORT, port).apply()
+  }
+
+  fun p25NetworkPort(context: Context): Int =
+    prefs(context).getInt(KEY_P25_NETWORK_PORT, 23456)
+
+  fun setP25NetworkPort(context: Context, port: Int) {
+    prefs(context).edit().putInt(KEY_P25_NETWORK_PORT, port).apply()
   }
 
   enum class SdrSource(val value: String) {

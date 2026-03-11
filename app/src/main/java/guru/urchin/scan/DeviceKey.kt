@@ -2,9 +2,25 @@ package guru.urchin.scan
 
 import java.security.MessageDigest
 
+/**
+ * Generates a stable device identity from an [ObservationInput].
+ *
+ * Checks protocol-specific identifiers in priority order:
+ * ADS-B (ICAO) → POCSAG (CAP+function) → P25 (WACN+system+unit) → TPMS (model+sensor)
+ * → address → name → volatile fallback.
+ *
+ * The resulting token is SHA-256 hashed to a 64-character hex string used as the
+ * primary key in the Room database.
+ */
 object DeviceKey {
   fun from(input: ObservationInput): String {
     val token = when {
+      !input.adsbIcao.isNullOrBlank() ->
+        "adsb:${input.adsbIcao.uppercase()}"
+      !input.pocsagCapCode.isNullOrBlank() ->
+        "pocsag:${input.pocsagCapCode}:${input.pocsagFunctionCode ?: 0}"
+      !input.p25UnitId.isNullOrBlank() ->
+        "p25:${input.p25Wacn.orEmpty()}:${input.p25SystemId.orEmpty()}:${input.p25UnitId}"
       !input.tpmsSensorId.isNullOrBlank() ->
         "tpms:${input.tpmsModel.orEmpty().lowercase()}:${input.tpmsSensorId.uppercase()}"
       !input.normalizedAddress.isNullOrBlank() -> "a:${input.normalizedAddress}"
@@ -33,9 +49,16 @@ object DeviceKey {
     }
   }
 
+  private val HEX = "0123456789abcdef".toCharArray()
+
   private fun sha256(value: String): String {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val bytes = digest.digest(value.toByteArray())
-    return bytes.joinToString("") { b -> "%02x".format(b) }
+    val bytes = MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
+    val hex = CharArray(bytes.size * 2)
+    for (i in bytes.indices) {
+      val v = bytes[i].toInt() and 0xFF
+      hex[i * 2] = HEX[v ushr 4]
+      hex[i * 2 + 1] = HEX[v and 0x0F]
+    }
+    return String(hex)
   }
 }

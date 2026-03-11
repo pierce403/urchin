@@ -7,6 +7,7 @@ plugins {
 android {
   namespace = "guru.urchin"
   compileSdk = 35
+  ndkVersion = "27.2.12479018"
 
   defaultConfig {
     applicationId = "guru.urchin"
@@ -16,6 +17,17 @@ android {
     versionName = "0.1.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+    ndk {
+      abiFilters += listOf("arm64-v8a", "x86_64")
+    }
+
+    externalNativeBuild {
+      cmake {
+        cFlags("-O2", "-fPIC")
+        arguments("-DANDROID_STL=none")
+      }
+    }
   }
 
   buildTypes {
@@ -39,6 +51,13 @@ android {
 
   buildFeatures {
     viewBinding = true
+  }
+
+  externalNativeBuild {
+    cmake {
+      path = file("src/main/cpp/CMakeLists.txt")
+      version = "3.22.1"
+    }
   }
 }
 
@@ -65,4 +84,6 @@ dependencies {
   androidTestImplementation("androidx.test:core:1.6.1")
   androidTestImplementation("androidx.test.ext:junit:1.2.1")
   androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+  androidTestImplementation("androidx.room:room-testing:$roomVersion")
+  androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 }

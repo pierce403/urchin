@@ -28,6 +28,68 @@
       android:layout_height="1dp"
       android:background="@color/urchin_stroke_soft" />
 
+    <HorizontalScrollView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:background="@color/urchin_surface"
+      android:paddingStart="12dp"
+      android:paddingEnd="12dp"
+      android:paddingTop="6dp"
+      android:paddingBottom="6dp"
+      android:scrollbars="none">
+
+      <com.google.android.material.chip.ChipGroup
+        android:id="@+id/protocolChips"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:singleLine="true"
+        app:singleSelection="true"
+        app:selectionRequired="true">
+
+        <com.google.android.material.chip.Chip
+          android:id="@+id/chipAll"
+          style="@style/Widget.MaterialComponents.Chip.Filter"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:checked="true"
+          android:text="@string/protocol_filter_all" />
+
+        <com.google.android.material.chip.Chip
+          android:id="@+id/chipTpms"
+          style="@style/Widget.MaterialComponents.Chip.Filter"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/protocol_filter_tpms" />
+
+        <com.google.android.material.chip.Chip
+          android:id="@+id/chipPocsag"
+          style="@style/Widget.MaterialComponents.Chip.Filter"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/protocol_filter_pocsag" />
+
+        <com.google.android.material.chip.Chip
+          android:id="@+id/chipAdsb"
+          style="@style/Widget.MaterialComponents.Chip.Filter"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/protocol_filter_adsb" />
+
+        <com.google.android.material.chip.Chip
+          android:id="@+id/chipP25"
+          style="@style/Widget.MaterialComponents.Chip.Filter"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/protocol_filter_p25" />
+
+      </com.google.android.material.chip.ChipGroup>
+    </HorizontalScrollView>
+
+    <View
+      android:layout_width="match_parent"
+      android:layout_height="1dp"
+      android:background="@color/urchin_stroke_soft" />
+
     <FrameLayout
       android:layout_width="match_parent"
       android:layout_height="0dp"
@@ -184,16 +246,26 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="18dp"
-        android:text="@string/frequency_label"
+        android:text="@string/protocols_label"
         android:textColor="@color/urchin_secondary"
         android:textStyle="bold" />
 
-      <RadioGroup
-        android:id="@+id/frequencyGroup"
-        android:layout_width="match_parent"
+      <CheckBox
+        android:id="@+id/protocolTpms"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:orientation="horizontal">
+        android:checked="true"
+        android:text="@string/protocol_tpms"
+        android:textColor="@color/urchin_on_surface" />
+
+      <RadioGroup
+        android:id="@+id/tpmsFreqGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
 
         <RadioButton
           android:id="@+id/freq315"
@@ -211,19 +283,78 @@
           android:textColor="@color/urchin_on_surface" />
       </RadioGroup>
 
+      <CheckBox
+        android:id="@+id/protocolPocsag"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/protocol_pocsag"
+        android:textColor="@color/urchin_on_surface" />
+
+      <CheckBox
+        android:id="@+id/protocolAdsb"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/protocol_adsb"
+        android:textColor="@color/urchin_on_surface" />
+
+      <CheckBox
+        android:id="@+id/protocolP25"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/protocol_p25"
+        android:textColor="@color/urchin_on_surface" />
+
       <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/p25PortLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp">
+        android:layout_marginTop="8dp"
+        android:visibility="gone">
 
         <com.google.android.material.textfield.TextInputEditText
-          android:id="@+id/gainInput"
+          android:id="@+id/p25PortInput"
           android:layout_width="match_parent"
           android:layout_height="wrap_content"
-          android:hint="@string/gain_hint"
+          android:hint="@string/p25_network_port"
           android:inputType="number"
           android:textColor="@color/urchin_on_surface" />
       </com.google.android.material.textfield.TextInputLayout>
+
+      <TextView
+        android:id="@+id/hoppingWarning"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/panel_surface_subtle"
+        android:padding="10dp"
+        android:text="@string/hopping_warning"
+        android:textColor="@color/urchin_secondary"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+      <LinearLayout
+        android:id="@+id/usbHardwareGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <com.google.android.material.textfield.TextInputLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="12dp">
+
+          <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/gainInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/gain_hint"
+            android:inputType="number"
+            android:textColor="@color/urchin_on_surface" />
+        </com.google.android.material.textfield.TextInputLayout>
+      </LinearLayout>
 
       <View
         android:layout_width="match_parent"

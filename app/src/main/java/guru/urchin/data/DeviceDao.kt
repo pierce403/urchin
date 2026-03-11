@@ -29,6 +29,9 @@ interface DeviceDao {
   @Query("UPDATE devices SET userCustomName = :name WHERE deviceKey = :deviceKey")
   suspend fun setUserCustomName(deviceKey: String, name: String?)
 
-  @Query("DELETE FROM devices WHERE lastSeen < :threshold")
-  suspend fun deleteOlderThan(threshold: Long)
+  @Query("DELETE FROM devices WHERE lastSeen < :threshold AND protocolType = :protocol")
+  suspend fun deleteOlderThanForProtocol(threshold: Long, protocol: String)
+
+  @Query("DELETE FROM devices WHERE lastSeen < :threshold AND protocolType IS NULL")
+  suspend fun deleteOlderThanForNullProtocol(threshold: Long)
 }

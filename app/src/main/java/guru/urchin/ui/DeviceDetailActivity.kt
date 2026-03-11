@@ -28,8 +28,8 @@ import guru.urchin.UrchinApp
 import guru.urchin.data.DeviceEntity
 import guru.urchin.databinding.ActivityDeviceDetailBinding
 import guru.urchin.util.Formatters
+import guru.urchin.util.SensorMetadataParser
 import guru.urchin.util.SensorPresentationBuilder
-import guru.urchin.util.TpmsMetadataParser
 import guru.urchin.util.WindowInsetsHelper
 
 class DeviceDetailActivity : AppCompatActivity() {
@@ -71,6 +71,7 @@ class DeviceDetailActivity : AppCompatActivity() {
       repeatOnLifecycle(Lifecycle.State.STARTED) {
         launch {
           repository.observeDevice(deviceKey).collect { device ->
+            if (isFinishing) return@collect
             currentDevice = device
             invalidateOptionsMenu()
             if (device == null) {
@@ -79,7 +80,7 @@ class DeviceDetailActivity : AppCompatActivity() {
             }
 
             val presentation = SensorPresentationBuilder.build(device)
-            val metadata = TpmsMetadataParser.parse(device.lastMetadataJson)
+            val metadata = SensorMetadataParser.parse(device.lastMetadataJson)
 
             binding.detailName.text = presentation.title
             binding.detailIdentity.isVisible = presentation.detailLines.isNotEmpty()
@@ -182,14 +183,43 @@ class DeviceDetailActivity : AppCompatActivity() {
       .show()
   }
 
-  private fun buildLatestReading(metadata: guru.urchin.util.TpmsMetadata): String {
-    return buildList {
-      metadata.tpmsPressureKpa?.let { add(Formatters.formatPressure(it)) }
-      metadata.tpmsTemperatureC?.let { add(Formatters.formatTemperature(it)) }
-      metadata.tpmsBatteryOk?.let { add(if (it) "Battery OK" else "Battery low") }
-      metadata.tpmsFrequencyMhz?.let { add(String.format("Frequency %.2f MHz", it)) }
-      metadata.tpmsSnr?.let { add(String.format("SNR %.1f dB", it)) }
-      metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+  private fun buildLatestReading(metadata: guru.urchin.util.SensorMetadata): String {
+    val protocol = metadata.protocolType ?: "tpms"
+    return when (protocol) {
+      "pocsag" -> buildList {
+        metadata.pocsagCapCode?.let { add("CAP Code: $it") }
+        metadata.pocsagFunctionCode?.let { add("Function: $it") }
+        metadata.pocsagMessage?.let { add("Message: $it") }
+        metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      }
+      "adsb" -> buildList {
+        metadata.adsbIcao?.let { add("ICAO: $it") }
+        metadata.adsbCallsign?.let { add("Callsign: $it") }
+        metadata.adsbAltitude?.let { add("Altitude: ${it} ft") }
+        metadata.adsbSpeed?.let { add(String.format("Speed: %.0f kts", it)) }
+        metadata.adsbHeading?.let { add(String.format("Heading: %.0f°", it)) }
+        if (metadata.adsbLat != null && metadata.adsbLon != null) {
+          add(String.format("Position: %.4f, %.4f", metadata.adsbLat, metadata.adsbLon))
+        }
+        metadata.adsbSquawk?.let { add("Squawk: $it") }
+        metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      }
+      "p25" -> buildList {
+        metadata.p25UnitId?.let { add("Unit ID: $it") }
+        metadata.p25TalkGroupId?.let { add("Talk Group: $it") }
+        metadata.p25Nac?.let { add("NAC: $it") }
+        metadata.p25Wacn?.let { add("WACN: $it") }
+        metadata.p25SystemId?.let { add("System ID: $it") }
+        metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      }
+      else -> buildList {
+        metadata.tpmsPressureKpa?.let { add(Formatters.formatPressure(it)) }
+        metadata.tpmsTemperatureC?.let { add(Formatters.formatTemperature(it)) }
+        metadata.tpmsBatteryOk?.let { add(if (it) "Battery OK" else "Battery low") }
+        metadata.tpmsFrequencyMhz?.let { add(String.format("Frequency %.2f MHz", it)) }
+        metadata.tpmsSnr?.let { add(String.format("SNR %.1f dB", it)) }
+        metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      }
     }.joinToString("\n").ifBlank {
       getString(guru.urchin.R.string.no_latest_reading)
     }

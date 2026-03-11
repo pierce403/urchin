@@ -22,7 +22,7 @@ class Rtl433Process(private val context: Context) {
     hardwareProfile: SdrHardwareProfile,
     frequencyHz: Int,
     gain: Int?,
-    onReading: (TpmsReading) -> Unit,
+    onReading: (SdrReading) -> Unit,
     onError: (String) -> Unit
   ) {
     stop()

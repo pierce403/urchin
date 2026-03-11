@@ -13,6 +13,9 @@ interface SightingDao {
   @Insert
   suspend fun insertSighting(sighting: SightingEntity)
 
-  @Query("DELETE FROM sightings WHERE timestamp < :threshold")
-  suspend fun pruneOlderThan(threshold: Long)
+  @Query("DELETE FROM sightings WHERE timestamp < :threshold AND protocolType = :protocol")
+  suspend fun pruneOlderThanForProtocol(threshold: Long, protocol: String)
+
+  @Query("DELETE FROM sightings WHERE timestamp < :threshold AND protocolType IS NULL")
+  suspend fun pruneOlderThanForNullProtocol(threshold: Long)
 }

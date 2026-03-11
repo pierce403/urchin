@@ -1,10 +1,10 @@
 # Urchin
 
-Urchin is an Android SDR app for local TPMS reconnaissance. It keeps the useful parts of the Unagi SDR/TPMS work, drops the Bluetooth stack entirely, and focuses on capturing `rtl_433` JSON from either:
+Urchin is an Android SDR app for local RF reconnaissance. It captures and displays observations from four radio protocols — TPMS, POCSAG, ADS-B, and P25 — using either:
 
 - A USB-attached RTL-SDR dongle
 - A USB-attached HackRF One
-- A network bridge streaming newline-delimited `rtl_433` JSON
+- Network bridges streaming newline-delimited JSON over TCP
 
 The app stores observations locally, shows live and historical sensor sightings, exposes raw JSON for export, and uses a yellow-on-black UI theme.
 
@@ -12,9 +12,11 @@ The project landing page is intended for `https://urchin.guru/`.
 
 ## Scope
 
-- SDR-only capture flow
-- TPMS observation parsing and vendor lookup
-- Local Room database for sensors and sightings
+- Multi-protocol SDR capture (TPMS, POCSAG, ADS-B, P25)
+- Protocol-specific observation parsing with per-protocol display and retention
+- Local Room database for sensors and sightings with composite indices
+- Multi-dongle assignment and single-dongle frequency hopping
+- Protocol filter chips, search, sort, live-only, starred, and battery-low filters
 - Sensor detail view with rename, copy, save, and share
 - Diagnostics screen with runtime state and recent log output
 - Static `index.html` landing page describing the project
@@ -41,18 +43,29 @@ The current debug build can be staged from:
 
 The site download is intended to point at:
 
-- `downloads/urchin-v0.1.1-debug.apk`
+- `downloads/urchin-v0.2.0-debug.apk`
+
+## Emulator setup
+
+See [docs/EMULATOR_SETUP.md](docs/EMULATOR_SETUP.md) for creating an AVD, launching the emulator, and connecting SDR dongles via network bridges.
 
 ## SDR notes
 
-- USB mode auto-detects supported hardware by VID/PID.
-- Supported USB hardware IDs currently include common RTL2832U dongles and HackRF One.
-- Network mode expects newline-delimited `rtl_433` JSON over TCP.
-- Frequency presets are `315 MHz` and `433.92 MHz`.
+- USB mode auto-detects supported hardware by VID/PID (RTL2832U dongles and HackRF One).
+- When multiple USB SDR devices are connected, Urchin assigns one dongle per frequency. With a single dongle, it uses frequency hopping.
+- Network mode connects to per-protocol bridges on configurable ports. A Raspberry Pi running [sdr-pi](https://github.com/ingmarvg/sdr-pi) can host your SDR dongles and stream observation data to the app over TCP:
+
+| Protocol | Tool | Default port |
+| -------- | ---- | ------------ |
+| TPMS/POCSAG | rtl_433 | 1234 |
+| ADS-B | dump1090 | 30003 |
+| P25 | OP25 | 23456 |
+
+- Frequency presets include `315 MHz` and `433.92 MHz` (TPMS), `929.6125 MHz` (POCSAG), `1090 MHz` (ADS-B), and `851 MHz` (P25).
 - Gain is optional; leaving it blank keeps automatic gain handling.
 
 ## Privacy
 
 - All observations stay on-device by default.
 - No cloud sync is included.
-- No Bluetooth collection remains in the app.
+- Different protocol types have different retention periods (7–30 days).

@@ -3,7 +3,7 @@ package guru.urchin.sdr
 import guru.urchin.scan.ObservationInput
 
 object TpmsObservationBuilder {
-  fun build(reading: TpmsReading): ObservationInput {
+  fun build(reading: SdrReading.Tpms): ObservationInput {
     val displayName = "TPMS ${reading.model} ${reading.sensorId}"
     val vendor = TpmsSensorVendorLookup.lookup(reading.model)
     val resolvedVendorName = vendor?.manufacturer ?: reading.model
@@ -25,6 +25,7 @@ object TpmsObservationBuilder {
       classificationCategory = "tpms_sensor",
       classificationLabel = "TPMS sensor",
       classificationConfidence = "high",
+      protocolType = "tpms",
       classificationEvidence = listOf("source:sdr", "protocol:${reading.model}"),
       tpmsModel = reading.model,
       tpmsSensorId = reading.sensorId,

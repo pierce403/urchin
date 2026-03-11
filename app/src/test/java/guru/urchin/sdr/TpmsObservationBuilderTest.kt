@@ -79,7 +79,7 @@ class TpmsObservationBuilderTest {
     assertTrue(input.classificationEvidence.any { it.contains("PMV-107J") })
   }
 
-  private fun sampleReading(rssi: Double? = -12.3) = TpmsReading(
+  private fun sampleReading(rssi: Double? = -12.3) = SdrReading.Tpms(
     model = "PMV-107J",
     sensorId = "0x00ABCDEF",
     pressureKpa = 220.5,

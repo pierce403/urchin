@@ -13,24 +13,30 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import guru.urchin.UrchinApp
 import guru.urchin.sdr.SdrPreferences
 import guru.urchin.sdr.SdrState
 import guru.urchin.util.Formatters
+import guru.urchin.util.SensorMetadataParser
 import guru.urchin.util.SensorPresentationBuilder
-import guru.urchin.util.TpmsMetadataParser
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
   private val urchinApp = app as UrchinApp
   private val repository = urchinApp.repository
   private val sdrController = urchinApp.sdrController
 
-  private val filterQuery = MutableStateFlow("")
-  private val sortMode = MutableStateFlow(SortMode.RECENT)
-  private val liveOnly = MutableStateFlow(false)
-  private val starredOnly = MutableStateFlow(false)
-  private val batteryLowOnly = MutableStateFlow(false)
+  private data class FilterState(
+    val query: String = "",
+    val sort: SortMode = SortMode.RECENT,
+    val liveOnly: Boolean = false,
+    val starredOnly: Boolean = false,
+    val batteryLowOnly: Boolean = false,
+    val protocol: String? = null
+  )
+
+  private val filterState = MutableStateFlow(FilterState())
 
   private val liveTicker = flow {
     while (true) {
@@ -49,7 +55,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
   private val devicesFlow = observedDevices.map { devices ->
     devices.map { device ->
-      val metadata = TpmsMetadataParser.parse(device.lastMetadataJson)
+      val metadata = SensorMetadataParser.parse(device.lastMetadataJson)
       val presentation = SensorPresentationBuilder.build(device)
       val metaParts = buildList {
         if (presentation.listSummary.isNotBlank()) {
@@ -58,6 +64,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         add("Seen ${Formatters.formatTimestamp(device.lastSeen)}")
         add(Formatters.formatSightingsCount(device.sightingsCount))
       }
+      val sensorId = metadata.tpmsSensorId
+        ?: metadata.pocsagCapCode
+        ?: metadata.adsbIcao
+        ?: metadata.p25UnitId
       DeviceListItem(
         deviceKey = device.deviceKey,
         displayName = device.displayName,
@@ -69,45 +79,37 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         lastRssi = device.lastRssi,
         sightingsCount = device.sightingsCount,
         starred = device.starred,
-        sensorId = metadata.tpmsSensorId,
+        sensorId = sensorId,
         vendorName = metadata.vendorName,
-        batteryLow = metadata.tpmsBatteryOk == false
+        batteryLow = metadata.tpmsBatteryOk == false,
+        protocolType = presentation.protocolType
       )
     }
   }
 
-  val devices: StateFlow<List<DeviceListItem>> = devicesFlow
-    .combine(filterQuery) { list, query ->
-      if (query.isBlank()) {
-        list
-      } else {
-        list.filter { item ->
-          item.searchText.contains(query, ignoreCase = true) ||
-            item.sensorId?.contains(query, ignoreCase = true) == true ||
-            item.vendorName?.contains(query, ignoreCase = true) == true
+  val devices: StateFlow<List<DeviceListItem>> = combine(
+    devicesFlow, filterState, liveTicker
+  ) { list, filter, now ->
+    list.asSequence()
+      .filter { item ->
+        (filter.query.isBlank() ||
+          item.searchText.contains(filter.query, ignoreCase = true) ||
+          item.sensorId?.contains(filter.query, ignoreCase = true) == true ||
+          item.vendorName?.contains(filter.query, ignoreCase = true) == true) &&
+          (!filter.starredOnly || item.starred) &&
+          (!filter.batteryLowOnly || item.batteryLow) &&
+          (filter.protocol == null || item.protocolType == filter.protocol) &&
+          (!filter.liveOnly || LiveDeviceWindow.isLive(item.lastSeen, now))
+      }
+      .sortedWith(
+        when (filter.sort) {
+          SortMode.RECENT -> compareByDescending { it.sortTimestamp }
+          SortMode.STRONGEST -> compareByDescending { it.lastRssi }
+          SortMode.NAME -> compareBy { it.displayTitle.lowercase() }
         }
-      }
-    }
-    .combine(starredOnly) { list, starred ->
-      if (starred) list.filter { it.starred } else list
-    }
-    .combine(batteryLowOnly) { list, batteryLow ->
-      if (batteryLow) list.filter { it.batteryLow } else list
-    }
-    .combine(liveOnly) { list, live ->
-      list to live
-    }
-    .combine(liveTicker) { (list, live), now ->
-      if (live) list.filter { LiveDeviceWindow.isLive(it.lastSeen, now) } else list
-    }
-    .combine(sortMode) { list, sort ->
-      when (sort) {
-        SortMode.RECENT -> list.sortedByDescending { it.sortTimestamp }
-        SortMode.STRONGEST -> list.sortedByDescending { it.lastRssi }
-        SortMode.NAME -> list.sortedBy { it.displayTitle.lowercase() }
-      }
-    }
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+      )
+      .toList()
+  }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
   val liveDeviceCount: StateFlow<Int> = observedDevices
     .combine(liveTicker) { devices, now ->
@@ -116,23 +118,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
   fun updateQuery(query: String) {
-    filterQuery.value = query
+    filterState.update { it.copy(query = query) }
   }
 
   fun updateSortMode(mode: SortMode) {
-    sortMode.value = mode
+    filterState.update { it.copy(sort = mode) }
   }
 
   fun setLiveOnly(live: Boolean) {
-    liveOnly.value = live
+    filterState.update { it.copy(liveOnly = live) }
   }
 
   fun setStarredOnly(starred: Boolean) {
-    starredOnly.value = starred
+    filterState.update { it.copy(starredOnly = starred) }
   }
 
   fun setBatteryLowOnly(enabled: Boolean) {
-    batteryLowOnly.value = enabled
+    filterState.update { it.copy(batteryLowOnly = enabled) }
+  }
+
+  fun setProtocolFilter(protocol: String?) {
+    filterState.update { it.copy(protocol = protocol) }
   }
 
   fun setStarred(deviceKey: String, starred: Boolean) {
@@ -151,6 +157,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     sdrController.stopSdr()
   }
 
+  fun pauseScan() {
+    sdrController.stopSdr()
+  }
+
   fun refreshScan() {
     if (SdrPreferences.isEnabled(getApplication())) {
       sdrController.startSdr()
@@ -158,7 +168,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
   }
 
   override fun onCleared() {
-    sdrController.stopSdr()
+    pauseScan()
     super.onCleared()
   }
 }

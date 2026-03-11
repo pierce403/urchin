@@ -59,6 +59,16 @@ object SdrUsbDetector {
     }
   }
 
+  fun findAllSdrDevices(context: Context): List<SupportedSdrDevice> {
+    val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager
+      ?: return emptyList()
+    return usbManager.deviceList.values.mapNotNull { device ->
+      profileFor(device)?.let { profile ->
+        SupportedSdrDevice(usbDevice = device, profile = profile)
+      }
+    }
+  }
+
   fun hasPermission(context: Context, device: UsbDevice): Boolean {
     val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager ?: return false
     return usbManager.hasPermission(device)

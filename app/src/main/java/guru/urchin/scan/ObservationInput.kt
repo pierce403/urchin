@@ -1,5 +1,15 @@
 package guru.urchin.scan
 
+/**
+ * Protocol-agnostic union DTO carrying fields from all supported protocols.
+ * Built by per-protocol observation builders and consumed by [ObservationRecorder]
+ * to write into the Room database.
+ *
+ * Field groups: core identity (name, address, rssi, timestamp), legacy BLE
+ * fields (serviceUuids through classificationEvidence), protocol type,
+ * TPMS (tpmsModel–tpmsSnr), POCSAG (pocsagCapCode–pocsagMessage),
+ * ADS-B (adsbIcao–adsbSquawk), P25 (p25UnitId–p25TalkGroupId).
+ */
 data class ObservationInput(
   val name: String?,
   val address: String?,
@@ -47,6 +57,7 @@ data class ObservationInput(
   val classificationLabel: String? = null,
   val classificationConfidence: String? = null,
   val classificationEvidence: List<String> = emptyList(),
+  val protocolType: String? = null,
   val tpmsModel: String? = null,
   val tpmsSensorId: String? = null,
   val tpmsPressureKpa: Double? = null,
@@ -54,5 +65,21 @@ data class ObservationInput(
   val tpmsBatteryOk: Boolean? = null,
   val tpmsFrequencyMhz: Double? = null,
   val tpmsSnr: Double? = null,
+  val pocsagCapCode: String? = null,
+  val pocsagFunctionCode: Int? = null,
+  val pocsagMessage: String? = null,
+  val adsbIcao: String? = null,
+  val adsbCallsign: String? = null,
+  val adsbAltitude: Int? = null,
+  val adsbSpeed: Double? = null,
+  val adsbHeading: Double? = null,
+  val adsbLat: Double? = null,
+  val adsbLon: Double? = null,
+  val adsbSquawk: String? = null,
+  val p25UnitId: String? = null,
+  val p25Nac: String? = null,
+  val p25Wacn: String? = null,
+  val p25SystemId: String? = null,
+  val p25TalkGroupId: String? = null,
   val rawJson: String? = null
 )

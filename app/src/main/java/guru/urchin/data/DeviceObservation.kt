@@ -6,5 +6,6 @@ data class DeviceObservation(
   val address: String?,
   val rssi: Int,
   val timestamp: Long,
-  val metadataJson: String?
+  val metadataJson: String?,
+  val protocolType: String? = null
 )

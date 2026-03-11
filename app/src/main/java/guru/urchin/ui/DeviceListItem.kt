@@ -13,5 +13,6 @@ data class DeviceListItem(
   val starred: Boolean,
   val sensorId: String?,
   val vendorName: String?,
-  val batteryLow: Boolean
+  val batteryLow: Boolean,
+  val protocolType: String? = null
 )

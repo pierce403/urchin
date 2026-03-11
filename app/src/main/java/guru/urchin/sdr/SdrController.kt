@@ -1,7 +1,8 @@
 package guru.urchin.sdr
 
-import android.content.BroadcastReceiver
 import android.content.Context
+import android.os.Looper
+import androidx.annotation.MainThread
 import guru.urchin.scan.ObservationRecorder
 import guru.urchin.scan.ScanDiagnosticsStore
 import guru.urchin.scan.ScanDiagnosticsSnapshot
@@ -11,19 +12,40 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+/**
+ * Top-level SDR orchestrator. Manages USB and network capture across all protocols.
+ *
+ * In network mode, starts per-protocol TCP bridges (rtl_433 for TPMS/POCSAG,
+ * dump1090 for ADS-B, OP25 for P25) on separate ports. In USB mode, detects
+ * connected dongles and either assigns one per frequency (multi-dongle) or
+ * uses [FrequencyHopper] to time-share a single dongle.
+ *
+ * All parsed readings flow through [handleSdrReading] → [ObservationBuilderRegistry]
+ * → [ObservationRecorder] into the Room database.
+ */
 class SdrController(
   private val context: Context,
   private val scope: CoroutineScope,
-  private val observationRecorder: ObservationRecorder
+  private val observationRecorder: ObservationRecorder,
+  private val usbDetector: UsbDetector = RealUsbDetector(context)
 ) {
   private val _sdrState = MutableStateFlow<SdrState>(SdrState.Idle)
   val sdrState: StateFlow<SdrState> = _sdrState.asStateFlow()
 
-  private val networkBridge = Rtl433NetworkBridge()
+  private val networkBridge = TcpStreamBridge<SdrReading>("SDR network bridge", Rtl433JsonParser::parse)
   private val rtl433Process by lazy { Rtl433Process(context) }
-  private var usbReceiver: BroadcastReceiver? = null
+  private var usbReceiverHandle: Any? = null
 
+  private val channels = mutableListOf<SdrChannel>()
+  private var frequencyHopper: FrequencyHopper? = null
+  private var adsbBridge: TcpStreamBridge<SdrReading.Adsb>? = null
+  private var adsbPoller: Dump1090JsonPoller? = null
+  private var p25Bridge: TcpStreamBridge<SdrReading.P25>? = null
+  private var p25Process: P25Process? = null
+
+  @MainThread
   fun startSdr() {
+    check(Looper.myLooper() == Looper.getMainLooper()) { "startSdr() must be called on the main thread" }
     if (!SdrPreferences.isEnabled(context)) {
       _sdrState.value = SdrState.Idle
       return
@@ -47,17 +69,30 @@ class SdrController(
     }
   }
 
+  @MainThread
   fun stopSdr() {
+    check(Looper.myLooper() == Looper.getMainLooper()) { "stopSdr() must be called on the main thread" }
     networkBridge.disconnect()
     rtl433Process.stop()
+    channels.forEach { it.stop() }
+    channels.clear()
+    frequencyHopper?.stop()
+    frequencyHopper = null
+    adsbBridge?.disconnect()
+    adsbBridge = null
+    adsbPoller?.stop()
+    adsbPoller = null
+    p25Bridge?.disconnect()
+    p25Bridge = null
+    p25Process?.stop()
+    p25Process = null
     _sdrState.value = SdrState.Idle
     DebugLog.log("SDR scanning stopped")
   }
 
   fun registerUsbDetection() {
-    if (usbReceiver != null) return
-    usbReceiver = SdrUsbDetector.registerReceiver(
-      context = context,
+    if (usbReceiverHandle != null) return
+    usbReceiverHandle = usbDetector.registerReceiver(
       onAttached = {
         if (SdrPreferences.isEnabled(context) &&
           SdrPreferences.source(context) == SdrPreferences.SdrSource.USB &&
@@ -71,6 +106,12 @@ class SdrController(
           SdrPreferences.source(context) == SdrPreferences.SdrSource.USB
         ) {
           rtl433Process.stop()
+          channels.forEach { it.stop() }
+          channels.clear()
+          frequencyHopper?.stop()
+          frequencyHopper = null
+          p25Process?.stop()
+          p25Process = null
           _sdrState.value = SdrState.UsbNotConnected
           ScanDiagnosticsStore.update { it.copy(lastError = "USB SDR disconnected.") }
         }
@@ -87,72 +128,215 @@ class SdrController(
   }
 
   fun unregisterUsbDetection() {
-    usbReceiver?.let {
-      SdrUsbDetector.unregisterReceiver(context, it)
-      usbReceiver = null
+    usbReceiverHandle?.let {
+      usbDetector.unregisterReceiver(it)
+      usbReceiverHandle = null
     }
   }
 
   private fun startNetworkBridge() {
     val host = SdrPreferences.networkHost(context)
     val port = SdrPreferences.networkPort(context)
-    DebugLog.log("SDR starting network bridge to $host:$port")
+    val enabledProtocols = SdrPreferences.enabledProtocols(context)
+    DebugLog.log("SDR starting network bridge to $host:$port protocols=$enabledProtocols")
     _sdrState.value = SdrState.Scanning
     ScanDiagnosticsStore.update {
       it.copy(sourceLabel = SdrPreferences.SdrSource.NETWORK.value)
     }
 
-    networkBridge.connect(
+    // rtl_433 bridge handles TPMS + POCSAG
+    val rtl433Protocols = enabledProtocols.intersect(setOf("tpms", "pocsag"))
+    if (rtl433Protocols.isNotEmpty()) {
+      networkBridge.connect(
+        scope = scope,
+        host = host,
+        port = port,
+        onReading = ::handleSdrReading,
+        onError = { message ->
+          _sdrState.value = SdrState.Error(message)
+          ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = message) }
+        }
+      )
+    }
+
+    // ADS-B bridge on separate port
+    if ("adsb" in enabledProtocols) {
+      startAdsbNetworkBridge(host)
+    }
+
+    // P25 bridge on separate port (OP25 metadata)
+    if ("p25" in enabledProtocols) {
+      startP25NetworkBridge(host)
+    }
+  }
+
+  private fun startAdsbNetworkBridge(host: String) {
+    val adsbPort = SdrPreferences.adsbNetworkPort(context)
+    DebugLog.log("ADS-B starting network bridge to $host:$adsbPort")
+    val bridge = TcpStreamBridge<SdrReading.Adsb>("ADS-B network bridge", AdsbJsonParser::parse)
+    adsbBridge = bridge
+    bridge.connect(
       scope = scope,
       host = host,
-      port = port,
-      onReading = ::handleTpmsReading,
+      port = adsbPort,
+      onReading = { reading -> handleSdrReading(reading) },
       onError = { message ->
-        _sdrState.value = SdrState.Error(message)
-        ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = message) }
+        DebugLog.log("ADS-B network bridge error: $message")
+        ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = "ADS-B: $message") }
+      }
+    )
+  }
+
+  private fun startP25NetworkBridge(host: String) {
+    val p25Port = SdrPreferences.p25NetworkPort(context)
+    DebugLog.log("P25 starting network bridge to $host:$p25Port")
+    val bridge = TcpStreamBridge<SdrReading.P25>("P25 network bridge", P25NetworkBridge::parseP25Json)
+    p25Bridge = bridge
+    bridge.connect(
+      scope = scope,
+      host = host,
+      port = p25Port,
+      onReading = { reading -> handleSdrReading(reading) },
+      onError = { message ->
+        DebugLog.log("P25 network bridge error: $message")
+        ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = "P25: $message") }
       }
     )
   }
 
   private fun startUsbSdr() {
-    val device = SdrUsbDetector.findSdrDevice(context)
-    if (device == null) {
+    val allDevices = usbDetector.findAllDevices()
+    if (allDevices.isEmpty()) {
       _sdrState.value = SdrState.UsbNotConnected
       DebugLog.log("No SDR USB device found")
       ScanDiagnosticsStore.update { it.copy(lastError = "No RTL-SDR or HackRF detected over USB.") }
       return
     }
 
-    if (!SdrUsbDetector.hasPermission(context, device.usbDevice)) {
-      SdrUsbDetector.requestPermission(context, device.usbDevice)
+    if (!usbDetector.allPermitted()) {
+      usbDetector.requestNextPermission()
       return
     }
 
-    DebugLog.log("SDR starting on-device rtl_433: ${SdrUsbDetector.deviceDescription(device.usbDevice)}")
+    val enabledProtocols = SdrPreferences.enabledProtocols(context)
+    val p25Enabled = "p25" in enabledProtocols
+    // buildFrequencyList excludes P25 — it needs its own binary (p25_scanner)
+    val frequencies = buildFrequencyList(enabledProtocols)
+
+    // Reserve one dongle for P25 if enabled and multiple dongles are available
+    val p25Dongle = if (p25Enabled && allDevices.size > frequencies.size) {
+      allDevices.last()
+    } else {
+      null
+    }
+    val rtl433Devices = if (p25Dongle != null) allDevices.dropLast(1) else allDevices
+
+    if (rtl433Devices.size >= frequencies.size && frequencies.isNotEmpty()) {
+      // Multiple dongles: assign one per frequency
+      DebugLog.log("SDR multi-dongle mode: ${rtl433Devices.size} devices for ${frequencies.size} frequencies")
+      frequencies.forEachIndexed { index, freq ->
+        if (index < rtl433Devices.size) {
+          val device = rtl433Devices[index]
+          val channel = SdrChannel(
+            config = SdrChannelConfig(
+              id = "usb-$index",
+              source = SdrPreferences.SdrSource.USB,
+              frequencyHz = freq,
+              gain = SdrPreferences.gain(context),
+              hardwareProfile = device.profile
+            ),
+            context = context
+          )
+          channels.add(channel)
+          channel.start(scope, onReading = ::handleSdrReading, onError = { message ->
+            DebugLog.log("SdrChannel usb-$index error: $message")
+            ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = message) }
+          })
+        }
+      }
+    } else if (frequencies.isNotEmpty()) {
+      // Single dongle: use frequency hopping if multiple frequencies
+      val device = rtl433Devices.first()
+      DebugLog.log("SDR starting on-device: ${usbDetector.deviceDescription() ?: device.profile.label}")
+
+      if (frequencies.size > 1) {
+        DebugLog.log("SDR frequency hopping mode: ${frequencies.size} frequencies")
+        val hopper = FrequencyHopper(
+          context = context,
+          frequencies = frequencies,
+          hardwareProfile = device.profile,
+          gain = SdrPreferences.gain(context),
+          onReading = ::handleSdrReading,
+          onError = { message ->
+            _sdrState.value = SdrState.Error(message)
+            ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = message) }
+          }
+        )
+        frequencyHopper = hopper
+        hopper.start(scope)
+      } else {
+        rtl433Process.start(
+          scope = scope,
+          hardwareProfile = device.profile,
+          frequencyHz = frequencies.firstOrNull() ?: SdrPreferences.frequencyHz(context),
+          gain = SdrPreferences.gain(context),
+          onReading = ::handleSdrReading,
+          onError = { message ->
+            _sdrState.value = SdrState.Error(message)
+            ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = message) }
+          }
+        )
+      }
+    }
+
+    // Start P25 on dedicated dongle if available
+    if (p25Dongle != null) {
+      DebugLog.log("P25 starting on dedicated dongle: ${p25Dongle.profile.label}")
+      val process = P25Process(context)
+      p25Process = process
+      process.start(
+        scope = scope,
+        hardwareProfile = p25Dongle.profile,
+        frequencyHz = 851_000_000,
+        gain = SdrPreferences.gain(context),
+        onReading = { reading -> handleSdrReading(reading) },
+        onError = { message ->
+          DebugLog.log("P25 USB process error: $message")
+          ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = "P25: $message") }
+        }
+      )
+    } else if (p25Enabled) {
+      DebugLog.log("P25 USB mode requires a dedicated dongle; no spare dongle available")
+    }
+
     _sdrState.value = SdrState.Scanning
     ScanDiagnosticsStore.update {
       it.copy(
         sourceLabel = SdrPreferences.SdrSource.USB.value,
-        hardwareLabel = device.profile.label,
+        hardwareLabel = allDevices.first().profile.label,
         lastError = null
       )
     }
-
-    rtl433Process.start(
-      scope = scope,
-      hardwareProfile = device.profile,
-      frequencyHz = SdrPreferences.frequencyHz(context),
-      gain = SdrPreferences.gain(context),
-      onReading = ::handleTpmsReading,
-      onError = { message ->
-        _sdrState.value = SdrState.Error(message)
-        ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = message) }
-      }
-    )
   }
 
-  internal fun handleTpmsReading(reading: TpmsReading) {
-    val input = TpmsObservationBuilder.build(reading)
+  private fun buildFrequencyList(enabledProtocols: Set<String>): List<Int> {
+    // P25 is excluded — it uses its own binary (p25_scanner), not rtl_433,
+    // and is started separately via P25Process.
+    val frequencies = mutableListOf<Int>()
+    if ("tpms" in enabledProtocols) {
+      frequencies.add(SdrPreferences.frequencyHz(context))
+    }
+    if ("pocsag" in enabledProtocols) {
+      frequencies.add(929_612_500) // Default POCSAG frequency
+    }
+    if ("adsb" in enabledProtocols) {
+      frequencies.add(1_090_000_000)
+    }
+    return frequencies.distinct()
+  }
+
+  internal fun handleSdrReading(reading: SdrReading) {
+    val input = ObservationBuilderRegistry.build(reading)
     ScanDiagnosticsStore.update {
       it.copy(
         sdrCallbackCount = it.sdrCallbackCount + 1,
@@ -161,10 +345,17 @@ class SdrController(
         lastError = null
       )
     }
-    DebugLog.log(
-      "SDR observation model=${reading.model} sensor=${reading.sensorId} " +
+    val logMessage = when (reading) {
+      is SdrReading.Tpms -> "SDR tpms model=${reading.model} sensor=${reading.sensorId} " +
         "pressure=${reading.pressureKpa} temp=${reading.temperatureC}"
-    )
+      is SdrReading.Pocsag -> "SDR pocsag address=${reading.address} func=${reading.functionCode} " +
+        "message=${reading.message?.take(50)}"
+      is SdrReading.Adsb -> "SDR adsb icao=${reading.icao} callsign=${reading.callsign} " +
+        "alt=${reading.altitude} speed=${reading.speed}"
+      is SdrReading.P25 -> "SDR p25 unit=${reading.unitId} nac=${reading.nac} " +
+        "talkgroup=${reading.talkGroupId}"
+    }
+    DebugLog.log(logMessage)
     observationRecorder.record(input)
   }
 }

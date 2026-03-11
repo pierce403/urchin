@@ -3,13 +3,29 @@ package guru.urchin.data
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Central data access for devices and sightings. [recordObservation] upserts the
+ * device, inserts a sighting row on new sighting windows, and prunes old data
+ * using per-protocol retention periods (ADS-B 7 days, P25 14 days, others 30 days).
+ */
 class DeviceRepository(
   private val database: AppDatabase,
   private val deviceDao: DeviceDao,
   private val sightingDao: SightingDao
 ) {
-  private val retentionDays = 30L
   private var lastPrunedAt = 0L
+
+  companion object {
+    private const val RETENTION_DAYS_DEFAULT = 30L
+    private const val RETENTION_DAYS_ADSB = 7L
+    private const val RETENTION_DAYS_P25 = 14L
+
+    fun retentionDaysForProtocol(protocolType: String?): Long = when (protocolType) {
+      "adsb" -> RETENTION_DAYS_ADSB
+      "p25" -> RETENTION_DAYS_P25
+      else -> RETENTION_DAYS_DEFAULT
+    }
+  }
 
   fun observeDevices(): Flow<List<DeviceEntity>> = deviceDao.observeDevices()
 
@@ -48,7 +64,8 @@ class DeviceRepository(
           rssiMax = observation.rssi,
           rssiAvg = observation.rssi.toDouble(),
           lastMetadataJson = observation.metadataJson,
-          starred = false
+          starred = false,
+          protocolType = observation.protocolType
         )
       } else {
         val isNewSighting = ContinuousSightingPolicy.isNewSighting(
@@ -77,7 +94,8 @@ class DeviceRepository(
           rssiAvg = avg,
           lastMetadataJson = observation.metadataJson ?: existing.lastMetadataJson,
           starred = existing.starred,
-          userCustomName = existing.userCustomName
+          userCustomName = existing.userCustomName,
+          protocolType = observation.protocolType ?: existing.protocolType
         )
       }
 
@@ -90,7 +108,8 @@ class DeviceRepository(
             rssi = observation.rssi,
             name = observation.name,
             address = observation.address,
-            metadataJson = observation.metadataJson
+            metadataJson = observation.metadataJson,
+            protocolType = observation.protocolType
           )
         )
       }
@@ -103,9 +122,19 @@ class DeviceRepository(
     if (!DeviceMaintenancePolicy.shouldPrune(lastPrunedAt, now)) {
       return
     }
-    val threshold = now - retentionDays * 24 * 60 * 60 * 1000
-    sightingDao.pruneOlderThan(threshold)
-    deviceDao.deleteOlderThan(threshold)
+    val msPerDay = 24 * 60 * 60 * 1000L
+    for ((protocol, days) in mapOf("adsb" to RETENTION_DAYS_ADSB, "p25" to RETENTION_DAYS_P25)) {
+      val threshold = now - days * msPerDay
+      sightingDao.pruneOlderThanForProtocol(threshold, protocol)
+      deviceDao.deleteOlderThanForProtocol(threshold, protocol)
+    }
+    val defaultThreshold = now - RETENTION_DAYS_DEFAULT * msPerDay
+    for (protocol in listOf("tpms", "pocsag")) {
+      sightingDao.pruneOlderThanForProtocol(defaultThreshold, protocol)
+      deviceDao.deleteOlderThanForProtocol(defaultThreshold, protocol)
+    }
+    sightingDao.pruneOlderThanForNullProtocol(defaultThreshold)
+    deviceDao.deleteOlderThanForNullProtocol(defaultThreshold)
     lastPrunedAt = now
   }
 }

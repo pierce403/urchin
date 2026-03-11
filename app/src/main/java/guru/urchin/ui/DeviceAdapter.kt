@@ -10,6 +10,7 @@ import androidx.core.view.updatePadding
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import guru.urchin.R
 import guru.urchin.databinding.ItemDeviceBinding
 import guru.urchin.util.Formatters
 
@@ -56,6 +57,13 @@ class DeviceAdapter(
       binding.deviceName.text = item.displayTitle
       binding.deviceName.maxLines = if (compactMode) 1 else 2
       binding.deviceName.ellipsize = TextUtils.TruncateAt.END
+      val iconRes = protocolIconRes(item.protocolType)
+      if (iconRes != null) {
+        binding.protocolIcon.setImageResource(iconRes)
+        binding.protocolIcon.isVisible = true
+      } else {
+        binding.protocolIcon.isVisible = false
+      }
       binding.deviceStar.text = if (item.starred) "★" else "☆"
       binding.deviceStar.contentDescription = itemView.context.getString(
         if (item.starred) {
@@ -123,6 +131,14 @@ class DeviceAdapter(
   companion object {
     private const val RSSI_CHANGE_THRESHOLD_DBM = 4
 
+    fun protocolIconRes(protocolType: String?): Int? = when (protocolType) {
+      "tpms" -> R.drawable.ic_protocol_tpms
+      "pocsag" -> R.drawable.ic_protocol_pocsag
+      "adsb" -> R.drawable.ic_protocol_adsb
+      "p25" -> R.drawable.ic_protocol_p25
+      else -> null
+    }
+
     private val DiffCallback = object : DiffUtil.ItemCallback<DeviceListItem>() {
       override fun areItemsTheSame(oldItem: DeviceListItem, newItem: DeviceListItem): Boolean {
         return oldItem.deviceKey == newItem.deviceKey
@@ -140,6 +156,7 @@ class DeviceAdapter(
           oldItem.sensorId == newItem.sensorId &&
           oldItem.vendorName == newItem.vendorName &&
           oldItem.batteryLow == newItem.batteryLow &&
+          oldItem.protocolType == newItem.protocolType &&
           kotlin.math.abs(oldItem.lastRssi - newItem.lastRssi) < RSSI_CHANGE_THRESHOLD_DBM
       }
     }

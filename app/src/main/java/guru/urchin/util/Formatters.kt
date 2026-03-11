@@ -7,10 +7,18 @@ import java.time.format.FormatStyle
 import java.util.Locale
 
 object Formatters {
+  private var cachedLocale: Locale? = null
+  private var cachedFormatter: DateTimeFormatter? = null
+
   fun formatTimestamp(timestamp: Long): String {
-    return DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)
-      .withLocale(Locale.getDefault())
-      .format(Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()))
+    val locale = Locale.getDefault()
+    val formatter = if (locale == cachedLocale && cachedFormatter != null) {
+      cachedFormatter!!
+    } else {
+      DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)
+        .withLocale(locale).also { cachedFormatter = it; cachedLocale = locale }
+    }
+    return formatter.format(Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()))
   }
 
   fun formatRssi(rssi: Int): String {
