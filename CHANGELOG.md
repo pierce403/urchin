@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.5 - 2026-03-11
+
+- Moved `rtl_433` out of app-private storage and into packaged native executables under `lib/<abi>/...` so Android no longer rejects USB launches with `error=13, Permission denied`.
+- Switched `dump1090` and `p25_scanner` to the same native-executable packaging path so all on-device SDR tools resolve from `nativeLibraryDir` consistently.
+- Updated diagnostics and setup docs to report the real native executable paths instead of the old extracted-asset location.
+
 ## 0.2.4 - 2026-03-11
 
 - Replaced the remaining ninja-style branding with a new gold-on-black urchin mark across the Android launcher icon, notification/status icon, website favicon, and site header.

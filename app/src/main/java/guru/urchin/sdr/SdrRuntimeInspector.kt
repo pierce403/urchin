@@ -33,20 +33,12 @@ data class ToolStatus(
 }
 
 object SdrRuntimeInspector {
-  fun rtl433Status(context: Context): ToolStatus {
-    val assetPath = Rtl433BinaryInstaller.packagedAssetPath(context)
-    val installedPath = Rtl433BinaryInstaller.installedBinary(context)?.absolutePath
-    val resolved = when {
-      assetPath != null && installedPath != null -> "$assetPath -> $installedPath"
-      assetPath != null -> assetPath
-      else -> null
-    }
-    return ToolStatus(
+  fun rtl433Status(context: Context): ToolStatus =
+    ToolStatus(
       label = "rtl_433",
-      expectedLocations = Rtl433BinaryInstaller.packagedAssetCandidates(),
-      resolvedLocation = resolved
+      expectedLocations = Rtl433BinaryInstaller.expectedLocations(context),
+      resolvedLocation = Rtl433BinaryInstaller.installedBinary(context)?.absolutePath
     )
-  }
 
   fun dump1090Status(context: Context): ToolStatus =
     nativeToolStatus(context, "dump1090", "libdump1090.so", "dump1090")

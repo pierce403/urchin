@@ -25,7 +25,7 @@ else()
     set(STARCH_MIX STARCH_MIX_GENERIC)
 endif()
 
-add_library(dump1090 SHARED
+add_executable(dump1090
     # Core decoder
     adaptive.c
     ais_charset.c
@@ -72,13 +72,13 @@ target_compile_definitions(dump1090 PRIVATE
     # so #ifdef guards in sdr.c exclude them
     _GNU_SOURCE
     ANDROID
-    MODES_DUMP1090_VARIANT=\"spider\"
+    MODES_DUMP1090_VARIANT=\"urchin\"
 )
 
 target_link_libraries(dump1090 log m)
 
 # --- P25 metadata scanner ---
-add_library(p25_scanner SHARED
+add_executable(p25_scanner
     p25/p25_scanner.c
     p25/c4fm_demod.c
     p25/p25_frame.c

@@ -40,21 +40,25 @@ adb forward tcp:1234 tcp:1234   # if testing on a physical device
 
 ## Mode 2: USB on-device
 
-Urchin launches `rtl_433` as a subprocess when USB mode is selected. The APK now bundles an
-ABI-specific executable asset at:
+Urchin launches `rtl_433` as a subprocess when USB mode is selected. The APK now stages an
+ABI-specific native executable into the installed app's extracted native-lib directory at:
 
-- `assets/sdr-bin/<abi>/rtl_433`
+- `<nativeLibraryDir>/librtl_433.so`
 
-On first launch in USB mode, `Rtl433BinaryInstaller` extracts that asset into app-private
-storage and marks it executable:
+The same packaging path is used for the other on-device tools:
 
-- `<noBackupFilesDir>/sdr-bin/rtl_433-v<versionCode>-<abi>`
+- `<nativeLibraryDir>/libdump1090.so`
+- `<nativeLibraryDir>/libp25_scanner.so`
+
+Android blocks execution from app-writable directories such as `files/`, `cache/`, and
+`no_backup/` on unrooted devices, so these binaries must live in the package-managed
+native-lib area instead of being extracted on first run.
 
 On Android, the app also opens the RTL-SDR through `UsbManager`, duplicates the granted file
 descriptor, and relays that fd into the subprocess. This is required for unrooted devices;
 without it, libusb cannot enumerate/open the dongle directly.
 
-Diagnostics reports both the packaged asset path and the extracted on-device path when present.
+Diagnostics reports the resolved native executable path for each bundled tool when present.
 
 Before building an APK that should support USB mode locally, populate the SDR sources with:
 
@@ -95,9 +99,9 @@ Build `rtl_433` and its dependencies for Android through the repo's pinned Gradl
     ```
 
 4. Gradle will:
-   - build `rtl_433` for `arm64-v8a` and `x86_64`
-   - copy the executables into `build/generated/rtl433Assets/<variant>/sdr-bin/<abi>/rtl_433`
-   - package them into the APK under `assets/sdr-bin/<abi>/rtl_433`
+   - build `rtl_433`, `dump1090`, and `p25_scanner` for `arm64-v8a` and `x86_64`
+   - copy the executables into `build/generated/sdrExecutableJniLibs/<variant>/<abi>/lib<tool>.so`
+   - package them into the APK's native-lib area so Android extracts them into `nativeLibraryDir`
 
 ### Option B: Termux-assisted sideload (development/testing only)
 
@@ -166,7 +170,7 @@ Open **Diagnostics** from the Urchin menu to see:
 - Current state (idle / scanning / error)
 - Hardware detected
 - Live USB inventory with VID/PID and permission state, including unsupported devices
-- Native-tool packaging status for `rtl_433`, `dump1090`, and `p25_scanner`, including packaged asset paths for `rtl_433`
+- Native-tool packaging status for `rtl_433`, `dump1090`, and `p25_scanner`, including resolved native executable paths
 - rtl_433 callback count and last reading timestamp
 - Per-state setup guidance
 

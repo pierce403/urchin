@@ -9,4 +9,3 @@ Remaining items:
 - Extend `scripts/sdr-simulator.py` to emit multi-protocol test data (ADS-B, POCSAG, P25 alongside TPMS).
 - P25 USB-only mode end-to-end testing with a dedicated dongle.
 - UAT 978 MHz ADS-B support (frequency preset exists but no dedicated parser).
-- Replace remaining inherited artwork with Urchin-specific assets.

@@ -16,8 +16,8 @@ android {
     applicationId = "guru.urchin"
     minSdk = 24
     targetSdk = 35
-    versionCode = 6
-    versionName = "0.2.4"
+    versionCode = 7
+    versionName = "0.2.5"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -57,8 +57,14 @@ android {
   }
 
   sourceSets {
-    getByName("debug").assets.srcDir(layout.buildDirectory.dir("generated/rtl433Assets/debug"))
-    getByName("release").assets.srcDir(layout.buildDirectory.dir("generated/rtl433Assets/release"))
+    getByName("debug").jniLibs.srcDir(layout.buildDirectory.dir("generated/sdrExecutableJniLibs/debug"))
+    getByName("release").jniLibs.srcDir(layout.buildDirectory.dir("generated/sdrExecutableJniLibs/release"))
+  }
+
+  packaging {
+    jniLibs {
+      useLegacyPackaging = true
+    }
   }
 
   externalNativeBuild {
@@ -71,50 +77,58 @@ android {
 
 val lifecycleVersion = "2.7.0"
 val roomVersion = "2.6.1"
-val rtl433AssetAbis = listOf("arm64-v8a", "x86_64")
+val nativeExecutableAbis = listOf("arm64-v8a", "x86_64")
+val nativeExecutableTargets = listOf("rtl_433", "dump1090", "p25_scanner")
 
 fun String.capitalized(): String =
   replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 
-fun registerRtl433AssetTask(variantName: String) {
+fun registerNativeExecutableJniLibTask(variantName: String) {
   val variantCapitalized = variantName.capitalized()
-  val outputDir = layout.buildDirectory.dir("generated/rtl433Assets/$variantName")
+  val outputDir = layout.buildDirectory.dir("generated/sdrExecutableJniLibs/$variantName")
   val cxxDir = layout.buildDirectory.dir("intermediates/cxx/$variantCapitalized")
 
-  val stageTask = tasks.register<Sync>("stage${variantCapitalized}Rtl433Assets") {
-    dependsOn(rtl433AssetAbis.map { "buildCMake${variantCapitalized}[$it]" })
+  val stageTask = tasks.register<Sync>("stage${variantCapitalized}SdrExecutableJniLibs") {
+    dependsOn(nativeExecutableAbis.map { "buildCMake${variantCapitalized}[$it]" })
     from(cxxDir) {
-      rtl433AssetAbis.forEach { abi ->
-        include("**/obj/$abi/rtl_433")
+      nativeExecutableTargets.forEach { target ->
+        include("**/obj/*/$target")
       }
       eachFile {
         val objIndex = relativePath.segments.indexOf("obj")
         require(objIndex >= 0 && objIndex + 2 < relativePath.segments.size) {
-          "Unexpected rtl_433 asset path: $relativePath"
+          "Unexpected SDR executable path: $relativePath"
         }
         val abi = relativePath.segments[objIndex + 1]
-        relativePath = RelativePath(true, "sdr-bin", abi, "rtl_433")
+        val target = relativePath.segments.last()
+        relativePath = RelativePath(true, abi, "lib$target.so")
       }
       includeEmptyDirs = false
     }
     into(outputDir)
     doLast {
-      val missing = rtl433AssetAbis.filterNot { abi ->
-        outputDir.get().file("sdr-bin/$abi/rtl_433").asFile.exists()
+      val missing = nativeExecutableAbis.flatMap { abi ->
+        nativeExecutableTargets.mapNotNull { target ->
+          val staged = outputDir.get().file("$abi/lib$target.so").asFile
+          if (staged.exists()) null else "$abi/$target"
+        }
       }
       require(missing.isEmpty()) {
-        "Missing packaged rtl_433 asset(s) for $variantName: ${missing.joinToString()}"
+        "Missing packaged SDR executable(s) for $variantName: ${missing.joinToString()}"
       }
     }
   }
 
-  tasks.matching { it.name == "merge${variantCapitalized}Assets" }.configureEach {
+  tasks.matching {
+    it.name == "merge${variantCapitalized}JniLibFolders" ||
+      it.name == "merge${variantCapitalized}NativeLibs"
+  }.configureEach {
     dependsOn(stageTask)
   }
 }
 
-registerRtl433AssetTask("debug")
-registerRtl433AssetTask("release")
+registerNativeExecutableJniLibTask("debug")
+registerNativeExecutableJniLibTask("release")
 
 dependencies {
   implementation("androidx.core:core-ktx:1.13.1")
