@@ -41,7 +41,7 @@ class P25Process(private val context: Context) {
     }
     val binary = File(requireNotNull(status.resolvedLocation))
     val relay = try {
-      if (hardwareProfile.rtl433DeviceArg == "driver=rtlsdr" && usbDeviceId != null) {
+      if (hardwareProfile.usesAndroidUsbFdRelay && usbDeviceId != null) {
         RtlSdrUsbRelay.open(context, usbDeviceId)
       } else {
         null

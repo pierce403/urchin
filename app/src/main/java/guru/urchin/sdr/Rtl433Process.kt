@@ -49,7 +49,7 @@ class Rtl433Process(private val context: Context) {
       return
     }
     val relay = try {
-      if (hardwareProfile.rtl433DeviceArg == "driver=rtlsdr" && usbDeviceId != null) {
+      if (hardwareProfile.usesAndroidUsbFdRelay && usbDeviceId != null) {
         RtlSdrUsbRelay.open(context, usbDeviceId)
       } else {
         null
@@ -61,17 +61,12 @@ class Rtl433Process(private val context: Context) {
       return
     }
 
-    val args = buildList {
-      add(binary.absolutePath)
-      hardwareProfile.rtl433DeviceArg?.let {
-        add("-d")
-        add(it)
-      }
-      add("-f"); add(frequencyHz.toString())
-      add("-F"); add("json")
-      add("-M"); add("level")
-      gain?.let { add("-g"); add(it.toString()) }
-    }
+    val args = buildArgs(
+      binaryPath = binary.absolutePath,
+      hardwareProfile = hardwareProfile,
+      frequencyHz = frequencyHz,
+      gain = gain
+    )
 
     try {
       DebugLog.log("Starting rtl_433: ${args.joinToString(" ")}")
@@ -165,4 +160,23 @@ class Rtl433Process(private val context: Context) {
         true // Process is still running
       }
     }
+
+  companion object {
+    internal fun buildArgs(
+      binaryPath: String,
+      hardwareProfile: SdrHardwareProfile,
+      frequencyHz: Int,
+      gain: Int?
+    ): List<String> = buildList {
+      add(binaryPath)
+      hardwareProfile.rtl433DeviceArg?.let {
+        add("-d")
+        add(it)
+      }
+      add("-f"); add(frequencyHz.toString())
+      add("-F"); add("json")
+      add("-M"); add("level")
+      gain?.let { add("-g"); add(it.toString()) }
+    }
+  }
 }

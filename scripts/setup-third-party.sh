@@ -39,6 +39,7 @@ clone_if_missing libusb   https://github.com/libusb/libusb.git
 clone_if_missing rtl-sdr  https://github.com/osmocom/rtl-sdr.git
 clone_if_missing rtl_433  https://github.com/merbanan/rtl_433.git
 apply_patch_if_needed rtl-sdr third_party/patches/rtl-sdr-android-usb-fd.patch
+apply_patch_if_needed rtl_433 third_party/patches/rtl433-stderr-logging.patch
 
 echo ""
 echo "Done. Third-party sources are in $THIRD_PARTY/"

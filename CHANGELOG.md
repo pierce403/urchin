@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.6 - 2026-03-11
+
+- Fixed USB RTL-SDR startup to use a plain RTL-SDR device selector (`-d 0`) instead of the invalid Soapy-style `driver=rtlsdr` string that caused `rtl_433` to exit immediately on-device.
+- Mirrored bundled `rtl_433` logger output back to stderr when no explicit log sink is configured, so Diagnostics captures the real startup error instead of only the generic `Use "-F log"` hint.
+- Added a regression test for the bundled `rtl_433` command-line builder used by USB and HackRF launch paths.
+
 ## 0.2.5 - 2026-03-11
 
 - Moved `rtl_433` out of app-private storage and into packaged native executables under `lib/<abi>/...` so Android no longer rejects USB launches with `error=13, Permission denied`.

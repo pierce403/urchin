@@ -15,7 +15,8 @@ data class SdrHardwareProfile(
   val label: String,
   val usbVendorId: Int,
   val usbProductId: Int,
-  val rtl433DeviceArg: String?
+  val rtl433DeviceArg: String?,
+  val usesAndroidUsbFdRelay: Boolean = false
 )
 
 data class SupportedSdrDevice(
@@ -31,13 +32,15 @@ object SdrUsbDetector {
       label = "RTL-SDR",
       usbVendorId = 0x0BDA,
       usbProductId = 0x2838,
-      rtl433DeviceArg = "driver=rtlsdr"
+      rtl433DeviceArg = "0",
+      usesAndroidUsbFdRelay = true
     ),
     SdrHardwareProfile(
       label = "RTL-SDR",
       usbVendorId = 0x0BDA,
       usbProductId = 0x2832,
-      rtl433DeviceArg = "driver=rtlsdr"
+      rtl433DeviceArg = "0",
+      usesAndroidUsbFdRelay = true
     ),
     SdrHardwareProfile(
       label = "HackRF One",

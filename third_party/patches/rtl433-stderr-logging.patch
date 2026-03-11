@@ -1,0 +1,14 @@
+diff --git a/src/r_api.c b/src/r_api.c
+index 1b4d149..9acc4d2 100644
+--- a/src/r_api.c
++++ b/src/r_api.c
+@@ -614,6 +614,9 @@ static void log_handler(log_level_t level, char const *src, char const *msg, voi
+     if (cfg->verbosity < (int)level) {
+         return;
+     }
++    if (!cfg->has_logout) {
++        fprintf(stderr, "%s: %s\n", src, msg);
++    }
+     /* clang-format off */
+     data_t *data = data_make(
+             "src",     "",     DATA_STRING, src,

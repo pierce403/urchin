@@ -58,6 +58,10 @@ On Android, the app also opens the RTL-SDR through `UsbManager`, duplicates the 
 descriptor, and relays that fd into the subprocess. This is required for unrooted devices;
 without it, libusb cannot enumerate/open the dongle directly.
 
+For this bundled build, USB RTL-SDR launch must use a plain RTL-SDR selector such as `-d 0`.
+The Soapy-style `-d driver=rtlsdr` form does not apply here and will fail unless SoapySDR
+support is added to the APK.
+
 Diagnostics reports the resolved native executable path for each bundled tool when present.
 
 Before building an APK that should support USB mode locally, populate the SDR sources with:

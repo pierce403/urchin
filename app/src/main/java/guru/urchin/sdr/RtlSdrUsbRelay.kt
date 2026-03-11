@@ -36,7 +36,7 @@ class RtlSdrUsbRelay private constructor(
         .firstOrNull { it.usbDevice.deviceId == usbDeviceId }
         ?: throw IOException("Supported RTL-SDR device id=$usbDeviceId is no longer attached.")
 
-      if (supportedDevice.profile.rtl433DeviceArg != "driver=rtlsdr") {
+      if (!supportedDevice.profile.usesAndroidUsbFdRelay) {
         throw IOException("USB fd relay is only implemented for RTL-SDR devices.")
       }
 
