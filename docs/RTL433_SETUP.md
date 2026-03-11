@@ -62,6 +62,10 @@ For this bundled build, USB RTL-SDR launch must use a plain RTL-SDR selector suc
 The Soapy-style `-d driver=rtlsdr` form does not apply here and will fail unless SoapySDR
 support is added to the APK.
 
+Android's `ProcessBuilder` closes non-stdio file descriptors when spawning a child process,
+so Urchin currently maps the granted USB descriptor onto child stdin and sets
+`URCHIN_RTLSDR_FD=0` before launching bundled SDR tools.
+
 Diagnostics reports the resolved native executable path for each bundled tool when present.
 
 Before building an APK that should support USB mode locally, populate the SDR sources with:

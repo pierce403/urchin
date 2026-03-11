@@ -43,7 +43,7 @@ The current debug build can be staged from:
 
 The site download is intended to point at:
 
-- `downloads/urchin-v0.2.6-debug.apk`
+- `downloads/urchin-v0.2.7-debug.apk`
 
 ## Emulator setup
 
@@ -54,6 +54,7 @@ See [docs/EMULATOR_SETUP.md](docs/EMULATOR_SETUP.md) for creating an AVD, launch
 - USB mode auto-detects supported hardware by VID/PID. RTL-SDR dongles are supported for on-device capture; HackRF currently uses Network bridge mode in this APK.
 - USB mode now packages `rtl_433`, `dump1090`, and `p25_scanner` as native executables under the APK's extracted `lib/<abi>/` directory and relays the Android UsbManager file descriptor into the subprocess so unrooted RTL-SDR USB capture can start.
 - On-device RTL-SDR launch uses the wrapped Android USB fd plus a plain RTL-SDR device index; do not switch it to `driver=rtlsdr` unless SoapySDR support is added to the bundled build.
+- Android closes non-stdio fds during `ProcessBuilder` spawn, so the current relay maps the granted USB descriptor onto child stdin and points `URCHIN_RTLSDR_FD` at fd `0`.
 - Diagnostics includes the live USB inventory with VID/PID/permission state plus the packaged native-tool paths for `rtl_433`, `dump1090`, and `p25_scanner`.
 - When multiple USB SDR devices are connected, Urchin assigns one dongle per frequency. With a single dongle, it uses frequency hopping.
 - Network mode connects to per-protocol bridges on configurable ports. A Raspberry Pi running [sdr-pi](https://github.com/ingmarvg/sdr-pi) can host your SDR dongles and stream observation data to the app over TCP:

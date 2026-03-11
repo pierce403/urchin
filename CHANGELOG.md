@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.7 - 2026-03-11
+
+- Reworked Android USB fd relay spawning so bundled SDR subprocesses map the granted USB descriptor onto child stdin instead of trying to inherit an arbitrary fd number that Android's `ProcessBuilder` closes.
+- Updated both `rtl_433` and `p25_scanner` USB launch paths to use the same stdin-based relay mechanism, keeping the existing `librtlsdr` wrapped-fd patch but feeding it a live child descriptor.
+- Added relay logging to show when the parent USB fd has been remapped onto the child process.
+
 ## 0.2.6 - 2026-03-11
 
 - Fixed USB RTL-SDR startup to use a plain RTL-SDR device selector (`-d 0`) instead of the invalid Soapy-style `driver=rtlsdr` string that caused `rtl_433` to exit immediately on-device.

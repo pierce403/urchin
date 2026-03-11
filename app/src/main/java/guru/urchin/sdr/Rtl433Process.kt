@@ -70,11 +70,7 @@ class Rtl433Process(private val context: Context) {
 
     try {
       DebugLog.log("Starting rtl_433: ${args.joinToString(" ")}")
-      val proc = ProcessBuilder(args).apply {
-        relay?.let {
-          environment()["URCHIN_RTLSDR_FD"] = it.fd.toString()
-        }
-      }
+      val proc = relay?.startProcess(args) ?: ProcessBuilder(args)
         .redirectErrorStream(false)
         .start()
       usbRelay = relay
