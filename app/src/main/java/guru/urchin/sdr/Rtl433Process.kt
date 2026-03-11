@@ -25,11 +25,12 @@ class Rtl433Process(private val context: Context) {
     onError: (String) -> Unit
   ) {
     stop()
-    val status = SdrRuntimeInspector.rtl433Status(context)
-    val binary = status.resolvedFile
-    if (!status.exists) {
-      DebugLog.log(status.missingMessage(), level = android.util.Log.ERROR)
-      onError(status.missingMessage())
+    val binary = try {
+      Rtl433BinaryInstaller.ensureInstalled(context)
+    } catch (e: Exception) {
+      val message = e.message ?: "Failed to install bundled rtl_433."
+      DebugLog.log(message, level = android.util.Log.ERROR, throwable = e)
+      onError(message)
       return
     }
 

@@ -106,6 +106,7 @@ Build the MVP: scan -> list -> tap -> history.
 - For development testing without SDR hardware, use network bridge mode: run `rtl_433 -f 433.92M -F json:tcp:0.0.0.0:1234` on desktop, or use `scripts/tpms-simulator.py` for fully simulated data; configure `SdrPreferences` with source=NETWORK, host=desktop-IP, port=1234
 - SDR Diagnostics now includes live USB inventory with VID/PID/permission status plus packaged native-tool paths for `rtl_433`, `dump1090`, and `p25_scanner`; unsupported USB attach/detach events are logged too, so hot-plug failures are easier to trace from the app
 - `bash scripts/setup-third-party.sh` now needs to run before `./gradlew assembleDebug`; the tracked `third_party/CMakeLists.txt` bridges the cloned deps into a buildable Android native tree
+- `rtl_433` now ships as an APK asset at `assets/sdr-bin/<abi>/rtl_433`; `Rtl433BinaryInstaller` extracts it to `noBackupFilesDir/sdr-bin/rtl_433-v<versionCode>-<abi>` before launch, and the Android wrapper disables upstream rtl_433 tests plus shims `pthread_cancel()` so the executable builds under the NDK
 - The emulator AVD is `unagi_test`; source `scripts/dev-env.sh` to set up PATH and the `start-emulator` helper function
 - `ObservationRecorder` is the shared pipeline for both BLE/Classic (`ScanController`) and SDR (`SdrController`) observations — handles metadata JSON, DB writes, and alert matching in one place
 - Reflection: before handoff, record any new command, pitfall, deploy detail, or collaborator preference discovered during the task

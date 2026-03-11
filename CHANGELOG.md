@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 - 2026-03-11
+
+- Bundled `rtl_433` into the APK as an ABI-specific asset and extract it into app-private storage before launch in USB mode.
+- Added Gradle asset-staging tasks so `assembleDebug` packages `rtl_433` automatically for both supported ABIs.
+- Disabled rtl_433's upstream test targets in Android builds and shimmed its Android-incompatible `pthread_cancel()` usage so the executable builds cleanly with the NDK.
+
 ## 0.2.1 - 2026-03-11
 
 - Added SDR runtime diagnostics that show live USB inventory, permission state, and packaged native-tool paths in-app.

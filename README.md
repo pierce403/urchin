@@ -44,7 +44,7 @@ The current debug build can be staged from:
 
 The site download is intended to point at:
 
-- `downloads/urchin-v0.2.1-debug.apk`
+- `downloads/urchin-v0.2.2-debug.apk`
 
 ## Emulator setup
 
@@ -53,6 +53,7 @@ See [docs/EMULATOR_SETUP.md](docs/EMULATOR_SETUP.md) for creating an AVD, launch
 ## SDR notes
 
 - USB mode auto-detects supported hardware by VID/PID (RTL2832U dongles and HackRF One).
+- USB mode now bundles `rtl_433` as an APK asset and extracts it into app-private storage on first launch, so the app no longer depends on `nativeLibraryDir` for that executable.
 - Diagnostics includes the live USB inventory with VID/PID/permission state plus the packaged native-tool paths for `rtl_433`, `dump1090`, and `p25_scanner`.
 - When multiple USB SDR devices are connected, Urchin assigns one dongle per frequency. With a single dongle, it uses frequency hopping.
 - Network mode connects to per-protocol bridges on configurable ports. A Raspberry Pi running [sdr-pi](https://github.com/ingmarvg/sdr-pi) can host your SDR dongles and stream observation data to the app over TCP:

@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import guru.urchin.util.DebugLog
 import java.io.BufferedReader
+import java.io.File
 import java.io.InputStreamReader
 
 class P25Process(private val context: Context) {
@@ -26,12 +27,12 @@ class P25Process(private val context: Context) {
   ) {
     stop()
     val status = SdrRuntimeInspector.p25ScannerStatus(context)
-    val binary = status.resolvedFile
     if (!status.exists) {
       DebugLog.log(status.missingMessage(), level = android.util.Log.ERROR)
       onError(status.missingMessage())
       return
     }
+    val binary = File(requireNotNull(status.resolvedLocation))
 
     val args = buildList {
       add(binary.absolutePath)

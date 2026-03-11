@@ -18,7 +18,7 @@ Two capture modes are supported: **Network** (easiest) and **USB** (on-device).
 Run rtl_433 on any host reachable from the Android device (laptop, Raspberry Pi, etc.):
 
 ```
-rtl_433 -F json -S 0 -M level
+rtl_433 -f 433.92M -F json:tcp:0.0.0.0:1234 -S 0 -M level
 ```
 
 Then in Urchin:
@@ -40,14 +40,17 @@ adb forward tcp:1234 tcp:1234   # if testing on a physical device
 
 ## Mode 2: USB on-device
 
-Urchin launches `rtl_433` as a subprocess when USB mode is selected. The binary is expected in
-the app's native library directory:
+Urchin launches `rtl_433` as a subprocess when USB mode is selected. The APK now bundles an
+ABI-specific executable asset at:
 
-- `<nativeLibraryDir>/librtl_433.so`  ← preferred (packaged as NDK library)
-- `<nativeLibraryDir>/rtl_433`         ← fallback
+- `assets/sdr-bin/<abi>/rtl_433`
 
-The native library directory is under `/data/app/guru.urchin-*/lib/<abi>/` and is not directly
-user-writable; the binary must be bundled in the APK.
+On first launch in USB mode, `Rtl433BinaryInstaller` extracts that asset into app-private
+storage and marks it executable:
+
+- `<noBackupFilesDir>/sdr-bin/rtl_433-v<versionCode>-<abi>`
+
+Diagnostics reports both the packaged asset path and the extracted on-device path when present.
 
 Before building an APK that should support USB mode locally, populate the SDR sources with:
 
@@ -55,18 +58,18 @@ Before building an APK that should support USB mode locally, populate the SDR so
 ./scripts/setup-third-party.sh
 ```
 
-### Option A: NDK build (advanced)
+### Option A: Built into the app (recommended)
 
-Build rtl_433 and its dependencies for Android:
+Build `rtl_433` and its dependencies for Android through the repo's pinned Gradle/CMake path:
 
 **Dependencies:**
 - [libusb-android](https://github.com/libusb/libusb) — USB I/O for rtl-sdr
 - [librtlsdr](https://github.com/osmocom/rtl-sdr) — RTL-SDR driver
 - [rtl_433](https://github.com/merbanan/rtl_433) — protocol decoder
 
-**Steps (arm64-v8a target):**
+**Steps:**
 
-1. Set up NDK 27+ (already included in the Urchin build):
+1. Set up NDK 27+ (already pinned in the Urchin build):
 
     ```
     export ANDROID_NDK=$ANDROID_SDK_ROOT/ndk/27.2.12479018
@@ -75,12 +78,22 @@ Build rtl_433 and its dependencies for Android:
     export AR=$TOOLCHAIN/bin/llvm-ar
     ```
 
-2. Cross-compile libusb with `--host=aarch64-linux-android`.
-3. Cross-compile librtlsdr against the libusb output.
-4. Build rtl_433 (cmake) with `CMAKE_TOOLCHAIN_FILE` pointing to the NDK toolchain file.
-5. Copy the resulting binary into `app/src/main/jniLibs/arm64-v8a/librtl_433.so`.
-6. Add to `app/src/main/cpp/CMakeLists.txt` as a prebuilt shared library
-   (see the existing dump1090 section as a reference).
+2. Populate the upstream sources:
+
+    ```
+    ./scripts/setup-third-party.sh
+    ```
+
+3. Build the app:
+
+    ```
+    ./gradlew assembleDebug
+    ```
+
+4. Gradle will:
+   - build `rtl_433` for `arm64-v8a` and `x86_64`
+   - copy the executables into `build/generated/rtl433Assets/<variant>/sdr-bin/<abi>/rtl_433`
+   - package them into the APK under `assets/sdr-bin/<abi>/rtl_433`
 
 ### Option B: Termux-assisted sideload (development/testing only)
 
@@ -148,7 +161,7 @@ Open **Diagnostics** from the Urchin menu to see:
 - Current state (idle / scanning / error)
 - Hardware detected
 - Live USB inventory with VID/PID and permission state, including unsupported devices
-- Native-tool packaging status for `rtl_433`, `dump1090`, and `p25_scanner`
+- Native-tool packaging status for `rtl_433`, `dump1090`, and `p25_scanner`, including packaged asset paths for `rtl_433`
 - rtl_433 callback count and last reading timestamp
 - Per-state setup guidance
 

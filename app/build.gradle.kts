@@ -1,3 +1,6 @@
+import org.gradle.api.file.RelativePath
+import org.gradle.api.tasks.Sync
+
 plugins {
   id("com.android.application")
   id("org.jetbrains.kotlin.android")
@@ -13,8 +16,8 @@ android {
     applicationId = "guru.urchin"
     minSdk = 24
     targetSdk = 35
-    versionCode = 3
-    versionName = "0.2.1"
+    versionCode = 4
+    versionName = "0.2.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -53,6 +56,11 @@ android {
     viewBinding = true
   }
 
+  sourceSets {
+    getByName("debug").assets.srcDir(layout.buildDirectory.dir("generated/rtl433Assets/debug"))
+    getByName("release").assets.srcDir(layout.buildDirectory.dir("generated/rtl433Assets/release"))
+  }
+
   externalNativeBuild {
     cmake {
       path = file("src/main/cpp/CMakeLists.txt")
@@ -63,6 +71,50 @@ android {
 
 val lifecycleVersion = "2.7.0"
 val roomVersion = "2.6.1"
+val rtl433AssetAbis = listOf("arm64-v8a", "x86_64")
+
+fun String.capitalized(): String =
+  replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+
+fun registerRtl433AssetTask(variantName: String) {
+  val variantCapitalized = variantName.capitalized()
+  val outputDir = layout.buildDirectory.dir("generated/rtl433Assets/$variantName")
+  val cxxDir = layout.buildDirectory.dir("intermediates/cxx/$variantCapitalized")
+
+  val stageTask = tasks.register<Sync>("stage${variantCapitalized}Rtl433Assets") {
+    dependsOn(rtl433AssetAbis.map { "buildCMake${variantCapitalized}[$it]" })
+    from(cxxDir) {
+      rtl433AssetAbis.forEach { abi ->
+        include("**/obj/$abi/rtl_433")
+      }
+      eachFile {
+        val objIndex = relativePath.segments.indexOf("obj")
+        require(objIndex >= 0 && objIndex + 2 < relativePath.segments.size) {
+          "Unexpected rtl_433 asset path: $relativePath"
+        }
+        val abi = relativePath.segments[objIndex + 1]
+        relativePath = RelativePath(true, "sdr-bin", abi, "rtl_433")
+      }
+      includeEmptyDirs = false
+    }
+    into(outputDir)
+    doLast {
+      val missing = rtl433AssetAbis.filterNot { abi ->
+        outputDir.get().file("sdr-bin/$abi/rtl_433").asFile.exists()
+      }
+      require(missing.isEmpty()) {
+        "Missing packaged rtl_433 asset(s) for $variantName: ${missing.joinToString()}"
+      }
+    }
+  }
+
+  tasks.matching { it.name == "merge${variantCapitalized}Assets" }.configureEach {
+    dependsOn(stageTask)
+  }
+}
+
+registerRtl433AssetTask("debug")
+registerRtl433AssetTask("release")
 
 dependencies {
   implementation("androidx.core:core-ktx:1.13.1")

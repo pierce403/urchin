@@ -8,6 +8,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import guru.urchin.util.DebugLog
 import java.io.BufferedReader
+import java.io.File
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
@@ -26,12 +27,12 @@ class Dump1090Process(private val context: Context) {
   ) {
     stop()
     val status = SdrRuntimeInspector.dump1090Status(context)
-    val binary = status.resolvedFile
     if (!status.exists) {
       DebugLog.log(status.missingMessage(), level = android.util.Log.ERROR)
       onError(status.missingMessage())
       return
     }
+    val binary = File(requireNotNull(status.resolvedLocation))
 
     val args = buildList {
       add(binary.absolutePath)
@@ -101,7 +102,7 @@ class Dump1090Process(private val context: Context) {
       } catch (_: IllegalThreadStateException) {
         true
       }
-  }
+    }
 }
 
 class Dump1090JsonPoller {
