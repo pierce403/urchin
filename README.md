@@ -44,7 +44,7 @@ The current debug build can be staged from:
 
 The site download is intended to point at:
 
-- `downloads/urchin-v0.2.0-debug.apk`
+- `downloads/urchin-v0.2.1-debug.apk`
 
 ## Emulator setup
 

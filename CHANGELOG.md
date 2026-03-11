@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 - 2026-03-11
+
+- Added SDR runtime diagnostics that show live USB inventory, permission state, and packaged native-tool paths in-app.
+- Logged unsupported USB attach/detach events and replaced generic missing-binary errors with exact APK path checks.
+- Added a tracked `third_party/CMakeLists.txt` so `bash scripts/setup-third-party.sh` plus `./gradlew assembleDebug` produces a fresh debug APK again.
+
 ## 0.2.0 - 2026-03-09
 
 - Added POCSAG, ADS-B, and P25 protocol support alongside original TPMS capture.
