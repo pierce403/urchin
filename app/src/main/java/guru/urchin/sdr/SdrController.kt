@@ -34,12 +34,12 @@ class SdrController(
 
   private val networkBridge = TcpStreamBridge<SdrReading>("SDR network bridge", Rtl433JsonParser::parse)
   private val rtl433Process by lazy { Rtl433Process(context) }
+  private var adsbProcess: Dump1090Process? = null
   private var usbReceiverHandle: Any? = null
 
   private val channels = mutableListOf<SdrChannel>()
   private var frequencyHopper: FrequencyHopper? = null
   private var adsbBridge: TcpStreamBridge<SdrReading.Adsb>? = null
-  private var adsbPoller: Dump1090JsonPoller? = null
   private var p25Bridge: TcpStreamBridge<SdrReading.P25>? = null
   private var p25Process: P25Process? = null
 
@@ -80,8 +80,8 @@ class SdrController(
     frequencyHopper = null
     adsbBridge?.disconnect()
     adsbBridge = null
-    adsbPoller?.stop()
-    adsbPoller = null
+    adsbProcess?.stop()
+    adsbProcess = null
     p25Bridge?.disconnect()
     p25Bridge = null
     p25Process?.stop()
@@ -110,6 +110,10 @@ class SdrController(
           channels.clear()
           frequencyHopper?.stop()
           frequencyHopper = null
+          adsbBridge?.disconnect()
+          adsbBridge = null
+          adsbProcess?.stop()
+          adsbProcess = null
           p25Process?.stop()
           p25Process = null
           _sdrState.value = SdrState.UsbNotConnected
@@ -173,7 +177,8 @@ class SdrController(
   private fun startAdsbNetworkBridge(host: String) {
     val adsbPort = SdrPreferences.adsbNetworkPort(context)
     DebugLog.log("ADS-B starting network bridge to $host:$adsbPort")
-    val bridge = TcpStreamBridge<SdrReading.Adsb>("ADS-B network bridge", AdsbJsonParser::parse)
+    adsbBridge?.disconnect()
+    val bridge = TcpStreamBridge<SdrReading.Adsb>("ADS-B network bridge", AdsbStreamParser::parse)
     adsbBridge = bridge
     bridge.connect(
       scope = scope,
@@ -219,22 +224,40 @@ class SdrController(
     }
 
     val enabledProtocols = SdrPreferences.enabledProtocols(context)
+    val adsbEnabled = "adsb" in enabledProtocols
     val p25Enabled = "p25" in enabledProtocols
-    // buildFrequencyList excludes P25 — it needs its own binary (p25_scanner)
-    val frequencies = buildFrequencyList(enabledProtocols)
+    val rtl433Frequencies = buildRtl433FrequencyList(enabledProtocols)
+    val remainingDevices = allDevices.toMutableList()
+    val reservedDedicatedSlots = listOfNotNull(
+      "adsb".takeIf { adsbEnabled },
+      "p25".takeIf { p25Enabled }
+    )
+    var startupWarning: String? = null
 
-    // Reserve one dongle for P25 if enabled and multiple dongles are available
-    val p25Dongle = if (p25Enabled && allDevices.size > frequencies.size) {
-      allDevices.last()
+    val rtl433Devices = mutableListOf<SdrDeviceHandle>()
+    if (rtl433Frequencies.isNotEmpty() && remainingDevices.isNotEmpty()) {
+      rtl433Devices.add(remainingDevices.removeAt(0))
+      while (rtl433Devices.size < rtl433Frequencies.size && remainingDevices.size > reservedDedicatedSlots.size) {
+        rtl433Devices.add(remainingDevices.removeAt(0))
+      }
+    }
+
+    val adsbDongle = if (adsbEnabled && remainingDevices.isNotEmpty()) {
+      remainingDevices.removeAt(0)
     } else {
       null
     }
-    val rtl433Devices = if (p25Dongle != null) allDevices.dropLast(1) else allDevices
 
-    if (rtl433Devices.size >= frequencies.size && frequencies.isNotEmpty()) {
+    val p25Dongle = if (p25Enabled && remainingDevices.isNotEmpty()) {
+      remainingDevices.removeAt(0)
+    } else {
+      null
+    }
+
+    if (rtl433Devices.size >= rtl433Frequencies.size && rtl433Frequencies.isNotEmpty()) {
       // Multiple dongles: assign one per frequency
-      DebugLog.log("SDR multi-dongle mode: ${rtl433Devices.size} devices for ${frequencies.size} frequencies")
-      frequencies.forEachIndexed { index, freq ->
+      DebugLog.log("SDR multi-dongle mode: ${rtl433Devices.size} devices for ${rtl433Frequencies.size} frequencies")
+      rtl433Frequencies.forEachIndexed { index, freq ->
         if (index < rtl433Devices.size) {
           val device = rtl433Devices[index]
           val channel = SdrChannel(
@@ -255,16 +278,16 @@ class SdrController(
           })
         }
       }
-    } else if (frequencies.isNotEmpty()) {
+    } else if (rtl433Frequencies.isNotEmpty()) {
       // Single dongle: use frequency hopping if multiple frequencies
       val device = rtl433Devices.first()
       DebugLog.log("SDR starting on-device: ${usbDetector.deviceDescription() ?: device.profile.label}")
 
-      if (frequencies.size > 1) {
-        DebugLog.log("SDR frequency hopping mode: ${frequencies.size} frequencies")
+      if (rtl433Frequencies.size > 1) {
+        DebugLog.log("SDR frequency hopping mode: ${rtl433Frequencies.size} frequencies")
         val hopper = FrequencyHopper(
           context = context,
-          frequencies = frequencies,
+          frequencies = rtl433Frequencies,
           usbDeviceId = device.id,
           hardwareProfile = device.profile,
           gain = SdrPreferences.gain(context),
@@ -281,7 +304,7 @@ class SdrController(
           scope = scope,
           hardwareProfile = device.profile,
           usbDeviceId = device.id,
-          frequencyHz = frequencies.firstOrNull() ?: SdrPreferences.frequencyHz(context),
+          frequencyHz = rtl433Frequencies.firstOrNull() ?: SdrPreferences.frequencyHz(context),
           gain = SdrPreferences.gain(context),
           onReading = ::handleSdrReading,
           onError = { message ->
@@ -290,6 +313,19 @@ class SdrController(
           }
         )
       }
+    }
+
+    if (adsbDongle != null) {
+      startAdsbUsbBridge(adsbDongle)
+    } else if (adsbEnabled) {
+      val message = if (rtl433Frequencies.isNotEmpty() || p25Enabled) {
+        "USB ADS-B needs its own RTL-SDR dongle when TPMS/POCSAG or P25 are also enabled."
+      } else {
+        "USB ADS-B requires an attached RTL-SDR dongle."
+      }
+      DebugLog.log(message)
+      startupWarning = message
+      ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = message) }
     }
 
     // Start P25 on dedicated dongle if available
@@ -310,7 +346,10 @@ class SdrController(
         }
       )
     } else if (p25Enabled) {
-      DebugLog.log("P25 USB mode requires a dedicated dongle; no spare dongle available")
+      val message = "P25 USB mode requires a dedicated dongle; no spare dongle available"
+      DebugLog.log(message)
+      startupWarning = startupWarning ?: message
+      ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = message) }
     }
 
     _sdrState.value = SdrState.Scanning
@@ -318,23 +357,41 @@ class SdrController(
       it.copy(
         sourceLabel = SdrPreferences.SdrSource.USB.value,
         hardwareLabel = allDevices.first().profile.label,
-        lastError = null
+        lastError = startupWarning
       )
     }
   }
 
-  private fun buildFrequencyList(enabledProtocols: Set<String>): List<Int> {
-    // P25 is excluded — it uses its own binary (p25_scanner), not rtl_433,
-    // and is started separately via P25Process.
+  private fun startAdsbUsbBridge(device: SdrDeviceHandle) {
+    val process = Dump1090Process(context)
+    val adsbPort = SdrPreferences.adsbNetworkPort(context)
+    adsbProcess = process
+    process.start(
+      scope = scope,
+      hardwareProfile = device.profile,
+      usbDeviceId = device.id,
+      frequencyHz = 1_090_000_000,
+      gain = SdrPreferences.gain(context),
+      sbsPort = adsbPort,
+      onReady = {
+        DebugLog.log("ADS-B USB stream ready on 127.0.0.1:$adsbPort")
+        startAdsbNetworkBridge("127.0.0.1")
+      },
+      onError = { message ->
+        DebugLog.log("ADS-B USB process error: $message")
+        ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = "ADS-B: $message") }
+      }
+    )
+  }
+
+  private fun buildRtl433FrequencyList(enabledProtocols: Set<String>): List<Int> {
+    // ADS-B and P25 are excluded here because they use dedicated binaries.
     val frequencies = mutableListOf<Int>()
     if ("tpms" in enabledProtocols) {
       frequencies.add(SdrPreferences.frequencyHz(context))
     }
     if ("pocsag" in enabledProtocols) {
       frequencies.add(929_612_500) // Default POCSAG frequency
-    }
-    if ("adsb" in enabledProtocols) {
-      frequencies.add(1_090_000_000)
     }
     return frequencies.distinct()
   }

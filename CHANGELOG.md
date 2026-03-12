@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.8 - 2026-03-11
+
+- Wired USB ADS-B through a real `dump1090` path instead of sending `1090 MHz` through `rtl_433`, and now start a dedicated local ADS-B bridge on `127.0.0.1:30003` once the bundled `dump1090` process is ready.
+- Restored the missing `dump1090` RTL-SDR source file, enabled `ENABLE_RTLSDR` in the Android native build, and linked it against the bundled `librtlsdr`/`libusb` stack so on-device ADS-B can actually open an RTL-SDR dongle.
+- Added ADS-B stream parsing for both stock `dump1090`/`readsb` SBS lines and the existing JSON-based simulator output, so network bridge mode now matches the documented `30003` default port.
+
 ## 0.2.7 - 2026-03-11
 
 - Reworked Android USB fd relay spawning so bundled SDR subprocesses map the granted USB descriptor onto child stdin instead of trying to inherit an arbitrary fd number that Android's `ProcessBuilder` closes.

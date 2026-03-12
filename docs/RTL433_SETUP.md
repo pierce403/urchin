@@ -36,6 +36,17 @@ python3 scripts/sdr-simulator.py --port 1234
 adb forward tcp:1234 tcp:1234   # if testing on a physical device
 ```
 
+For ADS-B network mode, point Urchin at a stock `dump1090` or `readsb` SBS stream on port
+`30003`:
+
+```
+dump1090 --net --quiet
+adb reverse tcp:30003 tcp:30003   # optional when testing against localhost
+```
+
+Urchin's ADS-B bridge accepts both those SBS/BaseStation lines and the repo's JSON-based
+simulator output for development.
+
 ---
 
 ## Mode 2: USB on-device
@@ -67,6 +78,8 @@ so Urchin currently maps the granted USB descriptor onto child stdin and sets
 `URCHIN_RTLSDR_FD=0` before launching bundled SDR tools.
 
 Diagnostics reports the resolved native executable path for each bundled tool when present.
+Bundled ADS-B also launches `dump1090` with a private loopback SBS listener on
+`127.0.0.1:30003`, and the app connects to that port once the local process is ready.
 
 Before building an APK that should support USB mode locally, populate the SDR sources with:
 
@@ -143,15 +156,19 @@ In Urchin, enable the P25 protocol toggle and set the P25 network port in the fi
 
 ## Multi-dongle configuration
 
-When multiple USB SDR devices are connected, Urchin assigns one dongle per frequency.
+When multiple USB SDR devices are connected, Urchin keeps TPMS/POCSAG on the `rtl_433`
+pool and assigns dedicated dongles to ADS-B (`dump1090`) and P25 (`p25_scanner`) when
+those protocols are enabled.
+
 For example, with two dongles and three protocols enabled (TPMS + POCSAG + ADS-B), one
-dongle handles TPMS while the other handles ADS-B. Remaining frequencies time-share via
-the frequency hopper.
+dongle handles ADS-B while the other handles the TPMS/POCSAG `rtl_433` pool. TPMS and
+POCSAG may still time-share via the frequency hopper if they outnumber the remaining
+`rtl_433` dongles.
 
 P25 over USB requires its own dedicated dongle when running alongside other protocols.
 
-With a single dongle, Urchin uses frequency hopping (default 5-second dwell) to cycle
-through all enabled frequencies.
+With a single dongle, Urchin only frequency-hops the `rtl_433` frequencies. ADS-B and P25
+need their own USB dongles when enabled alongside other protocols.
 
 ---
 
@@ -167,8 +184,8 @@ through all enabled frequencies.
 ## RTL-SDR notes
 
 - RTL-SDR V3/V4 covers ~500 kHz–1766 MHz (TPMS + POCSAG reachable, ADS-B borderline).
-- For ADS-B with RTL-SDR: use a second dongle or enable Network bridge for ADS-B on a
-  separate host running dump1090.
+- For ADS-B with RTL-SDR: use a second dongle when combining ADS-B with TPMS/POCSAG or P25,
+  or enable Network bridge for ADS-B on a separate host running dump1090/readsb.
 
 ---
 

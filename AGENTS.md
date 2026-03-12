@@ -113,6 +113,8 @@ Build the MVP: scan -> list -> tap -> history.
 - `scripts/setup-third-party.sh` currently reapplies tracked patches to both `rtl-sdr` and `rtl_433`; if a bundled native-tool behavior change lives under `third_party/`, record it as a patch file instead of relying on a dirty vendored checkout
 - Android's `ProcessBuilder` closes non-stdio fds on spawn; the current USB subprocess relay works by temporarily duping the granted RTL-SDR fd onto child stdin and setting `URCHIN_RTLSDR_FD=0`
 - Unrooted Android USB capture needed an explicit UsbManager fd relay into `librtlsdr`; `RtlSdrUsbRelay` now duplicates the granted fd into `rtl_433`/`p25_scanner`, and HackRF remains network-bridge-only until a Soapy/USB path is actually bundled
+- ADS-B network mode on port `30003` should parse stock `dump1090`/`readsb` SBS/BaseStation lines, not just JSON; keep simulator compatibility by accepting both stream formats
+- The vendored `dump1090` tree was missing `sdr_rtlsdr.c`; keep that file checked into `app/src/main/cpp/` and `ENABLE_RTLSDR` enabled in CMake or the bundled ADS-B binary will build but never open an RTL-SDR
 - Branding assets now live in multiple places: keep `favicon.svg`, `og_image.png`, `index.html`'s header mark, `ic_launcher_foreground.xml`, the legacy launcher vector, and `ic_unagi_status.xml` visually aligned whenever the logo changes
 - The emulator AVD is `unagi_test`; source `scripts/dev-env.sh` to set up PATH and the `start-emulator` helper function
 - `ObservationRecorder` is the shared pipeline for both BLE/Classic (`ScanController`) and SDR (`SdrController`) observations — handles metadata JSON, DB writes, and alert matching in one place

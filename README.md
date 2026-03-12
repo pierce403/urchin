@@ -3,7 +3,7 @@
 Urchin is an Android SDR app for local RF reconnaissance. It captures and displays observations from four radio protocols — TPMS, POCSAG, ADS-B, and P25 — using either:
 
 - A USB-attached RTL-SDR dongle
-- Network bridges streaming newline-delimited JSON over TCP
+- Network bridges streaming protocol-specific TCP output over the local network
 
 The app stores observations locally, shows live and historical sensor sightings, exposes raw JSON for export, and uses a yellow-on-black UI theme.
 
@@ -43,7 +43,7 @@ The current debug build can be staged from:
 
 The site download is intended to point at:
 
-- `downloads/urchin-v0.2.7-debug.apk`
+- `downloads/urchin-v0.2.8-debug.apk`
 
 ## Emulator setup
 
@@ -56,15 +56,17 @@ See [docs/EMULATOR_SETUP.md](docs/EMULATOR_SETUP.md) for creating an AVD, launch
 - On-device RTL-SDR launch uses the wrapped Android USB fd plus a plain RTL-SDR device index; do not switch it to `driver=rtlsdr` unless SoapySDR support is added to the bundled build.
 - Android closes non-stdio fds during `ProcessBuilder` spawn, so the current relay maps the granted USB descriptor onto child stdin and points `URCHIN_RTLSDR_FD` at fd `0`.
 - Diagnostics includes the live USB inventory with VID/PID/permission state plus the packaged native-tool paths for `rtl_433`, `dump1090`, and `p25_scanner`.
-- When multiple USB SDR devices are connected, Urchin assigns one dongle per frequency. With a single dongle, it uses frequency hopping.
+- USB ADS-B uses bundled `dump1090` on a private loopback SBS stream (`127.0.0.1:30003`) once the local process is ready.
+- TPMS and POCSAG share the `rtl_433` pool. With a single dongle, only those `rtl_433` frequencies are hopped; ADS-B and P25 each need their own USB dongle when enabled alongside other protocols.
 - Network mode connects to per-protocol bridges on configurable ports. A Raspberry Pi running [sdr-pi](https://github.com/ingmarvg/sdr-pi) can host your SDR dongles and stream observation data to the app over TCP:
 
 | Protocol | Tool | Default port |
 | -------- | ---- | ------------ |
 | TPMS/POCSAG | rtl_433 | 1234 |
-| ADS-B | dump1090 | 30003 |
+| ADS-B | dump1090 or readsb (SBS/BaseStation) | 30003 |
 | P25 | OP25 | 23456 |
 
+- ADS-B network mode accepts either stock `dump1090`/`readsb` SBS lines on `30003` or the repo's JSON-based simulator output for development.
 - Frequency presets include `315 MHz` and `433.92 MHz` (TPMS), `929.6125 MHz` (POCSAG), `1090 MHz` (ADS-B), and `851 MHz` (P25).
 - Gain is optional; leaving it blank keeps automatic gain handling.
 

@@ -45,6 +45,7 @@ add_executable(dump1090
     net_io.c
     sdr.c
     sdr_ifile.c
+    sdr_rtlsdr.c
     stats.c
     track.c
     util.c
@@ -63,19 +64,20 @@ target_include_directories(dump1090 PRIVATE
     ${CMAKE_SOURCE_DIR}/dsp/generated
     ${CMAKE_SOURCE_DIR}/dsp/helpers
     ${CMAKE_SOURCE_DIR}/dsp/impl
+    ${THIRD_PARTY_DIR}/rtl-sdr/include
+    ${THIRD_PARTY_DIR}/libusb/libusb
 )
 
 target_compile_definitions(dump1090 PRIVATE
     # Starch CPU mix (defines STARCH_MIX_ALIGNMENT)
     ${STARCH_MIX}=1
-    # Do NOT define ENABLE_RTLSDR/BLADERF/HACKRF/LIMESDR — leave undefined
-    # so #ifdef guards in sdr.c exclude them
+    ENABLE_RTLSDR
     _GNU_SOURCE
     ANDROID
     MODES_DUMP1090_VARIANT=\"urchin\"
 )
 
-target_link_libraries(dump1090 log m)
+target_link_libraries(dump1090 rtlsdr_static usb1 log m)
 
 # --- P25 metadata scanner ---
 add_executable(p25_scanner
