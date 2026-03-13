@@ -24,5 +24,6 @@ data class DeviceEntity(
   val lastMetadataJson: String?,
   val starred: Boolean,
   val userCustomName: String? = null,
-  val protocolType: String? = null
+  val protocolType: String? = null,
+  val sharedFromGroupIds: String? = null
 )

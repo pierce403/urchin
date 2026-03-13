@@ -3,6 +3,7 @@ package guru.urchin
 import android.app.Application
 import guru.urchin.alerts.DefaultAlertSeeder
 import guru.urchin.alerts.DeviceAlertNotifier
+import guru.urchin.data.AffinityGroupRepository
 import guru.urchin.data.AlertRuleRepository
 import guru.urchin.data.AppDatabase
 import guru.urchin.data.DeviceRepository
@@ -21,6 +22,9 @@ class UrchinApp : Application() {
   }
   val alertRuleRepository: AlertRuleRepository by lazy {
     AlertRuleRepository(database.alertRuleDao())
+  }
+  val affinityGroupRepository: AffinityGroupRepository by lazy {
+    AffinityGroupRepository(database.affinityGroupDao())
   }
   val alertNotifier: DeviceAlertNotifier by lazy {
     DeviceAlertNotifier(this)

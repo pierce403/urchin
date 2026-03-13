@@ -22,6 +22,7 @@ jobs:
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
           yes | sdkmanager --licenses
 
-      - uses: gradle/gradle-build-action@v3
-        with:
-          arguments: lintDebug test assembleDebug
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        run: ./gradlew lintDebug test assembleDebug
