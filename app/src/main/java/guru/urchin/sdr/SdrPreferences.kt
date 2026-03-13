@@ -12,6 +12,7 @@ object SdrPreferences {
   private const val KEY_NETWORK_PORT = "sdr_network_port"
   private const val KEY_PROTOCOLS_ENABLED = "sdr_protocols_enabled"
   private const val KEY_ADSB_NETWORK_PORT = "sdr_adsb_network_port"
+  private const val KEY_UAT_NETWORK_PORT = "sdr_uat_network_port"
   private const val KEY_P25_NETWORK_PORT = "sdr_p25_network_port"
 
   private fun prefs(context: Context) =
@@ -88,6 +89,13 @@ object SdrPreferences {
 
   fun setAdsbNetworkPort(context: Context, port: Int) {
     prefs(context).edit().putInt(KEY_ADSB_NETWORK_PORT, port).apply()
+  }
+
+  fun uatNetworkPort(context: Context): Int =
+    prefs(context).getInt(KEY_UAT_NETWORK_PORT, 30978)
+
+  fun setUatNetworkPort(context: Context, port: Int) {
+    prefs(context).edit().putInt(KEY_UAT_NETWORK_PORT, port).apply()
   }
 
   fun p25NetworkPort(context: Context): Int =

@@ -40,6 +40,7 @@ class SdrController(
   private val channels = mutableListOf<SdrChannel>()
   private var frequencyHopper: FrequencyHopper? = null
   private var adsbBridge: TcpStreamBridge<SdrReading.Adsb>? = null
+  private var uatBridge: TcpStreamBridge<SdrReading.Adsb>? = null
   private var p25Bridge: TcpStreamBridge<SdrReading.P25>? = null
   private var p25Process: P25Process? = null
 
@@ -80,6 +81,8 @@ class SdrController(
     frequencyHopper = null
     adsbBridge?.disconnect()
     adsbBridge = null
+    uatBridge?.disconnect()
+    uatBridge = null
     adsbProcess?.stop()
     adsbProcess = null
     p25Bridge?.disconnect()
@@ -163,9 +166,14 @@ class SdrController(
       )
     }
 
-    // ADS-B bridge on separate port
+    // ADS-B 1090 MHz bridge on separate port
     if ("adsb" in enabledProtocols) {
       startAdsbNetworkBridge(host)
+    }
+
+    // UAT 978 MHz bridge on separate port
+    if ("uat" in enabledProtocols) {
+      startUatNetworkBridge(host)
     }
 
     // P25 bridge on separate port (OP25 metadata)
@@ -188,6 +196,25 @@ class SdrController(
       onError = { message ->
         DebugLog.log("ADS-B network bridge error: $message")
         ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = "ADS-B: $message") }
+      }
+    )
+  }
+
+  private fun startUatNetworkBridge(host: String) {
+    val uatPort = SdrPreferences.uatNetworkPort(context)
+    DebugLog.log("UAT starting network bridge to $host:$uatPort")
+    val bridge = TcpStreamBridge<SdrReading.Adsb>("UAT network bridge") { line ->
+      AdsbJsonParser.parse(line, frequencyMhz = 978.0)
+    }
+    uatBridge = bridge
+    bridge.connect(
+      scope = scope,
+      host = host,
+      port = uatPort,
+      onReading = { reading -> handleSdrReading(reading) },
+      onError = { message ->
+        DebugLog.log("UAT network bridge error: $message")
+        ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = "UAT: $message") }
       }
     )
   }

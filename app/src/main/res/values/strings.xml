@@ -68,12 +68,15 @@
   <string name="protocol_required">At least one protocol must be enabled.</string>
   <string name="protocol_pocsag">POCSAG Pager (929 MHz)</string>
   <string name="protocol_adsb">ADS-B Aircraft (1090 MHz)</string>
+  <string name="protocol_uat">UAT Aircraft (978 MHz)</string>
   <string name="protocol_filter_all">All</string>
   <string name="protocol_filter_tpms">TPMS</string>
   <string name="protocol_filter_pocsag">Pager</string>
   <string name="protocol_filter_adsb">Aircraft</string>
+  <string name="protocol_filter_uat">UAT</string>
   <string name="protocol_filter_p25">P25</string>
   <string name="protocol_p25">P25 Radio (136-800 MHz)</string>
+  <string name="uat_network_port">UAT data port (default 30978)</string>
   <string name="p25_network_port">OP25 metadata port (default 23456)</string>
 
   <!-- Alerts -->
@@ -151,6 +154,7 @@
   <string name="member_revoked_toast">Member revoked. Group key rotated to epoch %1$d.</string>
 
   <!-- Continuous scanning -->
+  <string name="continuous_scanning">Continuous scanning</string>
   <string name="continuous_scan_notification_title">Urchin SDR — Continuous Scan</string>
   <string name="continuous_scan_active">Scanning active</string>
   <string name="continuous_scan_idle">SDR idle — waiting to start</string>

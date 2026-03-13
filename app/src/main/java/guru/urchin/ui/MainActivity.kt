@@ -12,8 +12,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.coroutines.launch
+import android.content.Intent
 import guru.urchin.R
 import guru.urchin.databinding.ActivityMainBinding
+import guru.urchin.scan.ContinuousScanPreferences
+import guru.urchin.scan.ContinuousScanService
 import guru.urchin.sdr.SdrPreferences
 import guru.urchin.sdr.SdrRuntimeInspector
 import guru.urchin.sdr.SdrState
@@ -29,6 +32,7 @@ class MainActivity : AppCompatActivity() {
   private lateinit var adapter: DeviceAdapter
   private lateinit var appVersionInfo: AppVersionInfo
   private var compactCards = false
+  private var continuousScanningEnabled = false
   private var bindingPrefs = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     WindowInsetsHelper.applyVerticalInsets(binding.filterDrawerContent)
     WindowInsetsHelper.requestApplyInsets(binding.root)
 
+    continuousScanningEnabled = ContinuousScanPreferences.isEnabled(this)
     compactCards = MainDisplayPreferences.isCompactDeviceCards(this)
     adapter = DeviceAdapter(
       onClick = { item ->
@@ -171,11 +176,21 @@ class MainActivity : AppCompatActivity() {
         true
       }
       R.id.menu_alerts -> {
-        startActivity(android.content.Intent(this, AlertsActivity::class.java))
+        startActivity(Intent(this, AlertsActivity::class.java))
+        true
+      }
+      R.id.menu_groups -> {
+        startActivity(Intent(this, AffinityGroupsActivity::class.java))
+        true
+      }
+      R.id.menu_continuous_scanning -> {
+        val enabled = !item.isChecked
+        item.isChecked = enabled
+        setContinuousScanningEnabled(enabled)
         true
       }
       R.id.menu_diagnostics -> {
-        startActivity(android.content.Intent(this, DiagnosticsActivity::class.java))
+        startActivity(Intent(this, DiagnosticsActivity::class.java))
         true
       }
       R.id.menu_compact_cards -> {
@@ -241,14 +256,17 @@ class MainActivity : AppCompatActivity() {
     binding.protocolTpms.isChecked = "tpms" in enabled
     binding.protocolPocsag.isChecked = "pocsag" in enabled
     binding.protocolAdsb.isChecked = "adsb" in enabled
+    binding.protocolUat.isChecked = "uat" in enabled
     binding.protocolP25.isChecked = "p25" in enabled
     when (SdrPreferences.frequencyMhz(this)) {
       315 -> binding.freq315.isChecked = true
       else -> binding.freq433.isChecked = true
     }
+    updateUatPortVisibility()
     updateP25PortVisibility()
     updateTpmsFreqVisibility()
     updateHoppingWarning()
+    binding.uatPortInput.setText(SdrPreferences.uatNetworkPort(this).toString())
     binding.p25PortInput.setText(SdrPreferences.p25NetworkPort(this).toString())
     bindingPrefs = false
 
@@ -258,6 +276,7 @@ class MainActivity : AppCompatActivity() {
       if (binding.protocolTpms.isChecked) protocols.add("tpms")
       if (binding.protocolPocsag.isChecked) protocols.add("pocsag")
       if (binding.protocolAdsb.isChecked) protocols.add("adsb")
+      if (binding.protocolUat.isChecked) protocols.add("uat")
       if (binding.protocolP25.isChecked) protocols.add("p25")
       if (protocols.isEmpty()) {
         protocols.add("tpms")
@@ -267,6 +286,7 @@ class MainActivity : AppCompatActivity() {
         android.widget.Toast.makeText(this, getString(R.string.protocol_required), android.widget.Toast.LENGTH_SHORT).show()
       }
       SdrPreferences.setEnabledProtocols(this, protocols)
+      updateUatPortVisibility()
       updateP25PortVisibility()
       updateTpmsFreqVisibility()
       updateHoppingWarning()
@@ -275,6 +295,7 @@ class MainActivity : AppCompatActivity() {
     binding.protocolTpms.setOnCheckedChangeListener(protocolToggleListener)
     binding.protocolPocsag.setOnCheckedChangeListener(protocolToggleListener)
     binding.protocolAdsb.setOnCheckedChangeListener(protocolToggleListener)
+    binding.protocolUat.setOnCheckedChangeListener(protocolToggleListener)
     binding.protocolP25.setOnCheckedChangeListener(protocolToggleListener)
 
     binding.tpmsFreqGroup.setOnCheckedChangeListener { _, checkedId ->
@@ -284,12 +305,25 @@ class MainActivity : AppCompatActivity() {
       restartIfScanning()
     }
 
+    binding.uatPortInput.doAfterTextChanged { text ->
+      if (bindingPrefs) return@doAfterTextChanged
+      val port = text?.toString()?.toIntOrNull() ?: return@doAfterTextChanged
+      SdrPreferences.setUatNetworkPort(this, port)
+      restartIfScanning(source = SdrPreferences.SdrSource.NETWORK)
+    }
+
     binding.p25PortInput.doAfterTextChanged { text ->
       if (bindingPrefs) return@doAfterTextChanged
       val port = text?.toString()?.toIntOrNull() ?: return@doAfterTextChanged
       SdrPreferences.setP25NetworkPort(this, port)
       restartIfScanning(source = SdrPreferences.SdrSource.NETWORK)
     }
+  }
+
+  private fun updateUatPortVisibility() {
+    val uatChecked = binding.protocolUat.isChecked
+    val isNetwork = SdrPreferences.source(this) == SdrPreferences.SdrSource.NETWORK
+    binding.uatPortLayout.isVisible = uatChecked && isNetwork
   }
 
   private fun updateP25PortVisibility() {
@@ -310,6 +344,7 @@ class MainActivity : AppCompatActivity() {
     if (binding.protocolTpms.isChecked) frequencyCount++
     if (binding.protocolPocsag.isChecked) frequencyCount++
     if (binding.protocolAdsb.isChecked) frequencyCount++
+    if (binding.protocolUat.isChecked) frequencyCount++
     // P25 uses its own dongle/binary, excluded from frequency count
     binding.hoppingWarning.isVisible = isUsb && frequencyCount > 1
   }
@@ -320,6 +355,7 @@ class MainActivity : AppCompatActivity() {
         R.id.chipTpms in checkedIds -> "tpms"
         R.id.chipPocsag in checkedIds -> "pocsag"
         R.id.chipAdsb in checkedIds -> "adsb"
+        R.id.chipUat in checkedIds -> "uat"
         R.id.chipP25 in checkedIds -> "p25"
         else -> null
       }
@@ -330,6 +366,7 @@ class MainActivity : AppCompatActivity() {
   private fun updateSourceVisibility(source: SdrPreferences.SdrSource) {
     binding.networkConfigGroup.isVisible = source == SdrPreferences.SdrSource.NETWORK
     binding.usbHardwareGroup.isVisible = source == SdrPreferences.SdrSource.USB
+    updateUatPortVisibility()
     updateP25PortVisibility()
     updateTpmsFreqVisibility()
     updateHoppingWarning()
@@ -385,6 +422,7 @@ class MainActivity : AppCompatActivity() {
 
   private fun syncMenuState(menu: android.view.Menu?) {
     menu ?: return
+    menu.findItem(R.id.menu_continuous_scanning)?.isChecked = continuousScanningEnabled
     menu.findItem(R.id.menu_compact_cards)?.isChecked = compactCards
     menu.findItem(R.id.menu_version)?.title = appVersionInfo.menuLabel
     val scanToggle = menu.findItem(R.id.menu_scan_toggle)
@@ -400,6 +438,15 @@ class MainActivity : AppCompatActivity() {
     adapter.setCompactMode(enabled)
     if (persist) {
       MainDisplayPreferences.setCompactDeviceCards(this, enabled)
+    }
+  }
+
+  private fun setContinuousScanningEnabled(enabled: Boolean) {
+    continuousScanningEnabled = enabled
+    if (enabled) {
+      ContinuousScanService.start(this)
+    } else {
+      ContinuousScanService.stop(this)
     }
   }
 

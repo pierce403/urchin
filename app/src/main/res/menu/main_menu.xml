@@ -9,6 +9,15 @@
       android:title="@string/alerts"
       app:showAsAction="never" />
   <item
+      android:id="@+id/menu_groups"
+      android:title="@string/affinity_groups"
+      app:showAsAction="never" />
+  <item
+      android:id="@+id/menu_continuous_scanning"
+      android:checkable="true"
+      android:title="@string/continuous_scanning"
+      app:showAsAction="never" />
+  <item
       android:id="@+id/menu_diagnostics"
       android:title="@string/diagnostics"
       app:showAsAction="never" />

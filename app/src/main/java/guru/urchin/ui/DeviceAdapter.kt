@@ -134,7 +134,7 @@ class DeviceAdapter(
     fun protocolIconRes(protocolType: String?): Int? = when (protocolType) {
       "tpms" -> R.drawable.ic_protocol_tpms
       "pocsag" -> R.drawable.ic_protocol_pocsag
-      "adsb" -> R.drawable.ic_protocol_adsb
+      "adsb", "uat" -> R.drawable.ic_protocol_adsb
       "p25" -> R.drawable.ic_protocol_p25
       else -> null
     }

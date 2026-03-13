@@ -3,7 +3,7 @@ package guru.urchin.sdr
 import org.json.JSONObject
 
 object AdsbJsonParser {
-  fun parse(jsonLine: String): SdrReading.Adsb? {
+  fun parse(jsonLine: String, frequencyMhz: Double = 1090.0): SdrReading.Adsb? {
     return try {
       val json = JSONObject(jsonLine)
       val icao = json.optStringOrNull("hex") ?: return null
@@ -19,7 +19,7 @@ object AdsbJsonParser {
         squawk = json.optStringOrNull("squawk"),
         rssi = json.optDoubleOrNull("rssi"),
         snr = null,
-        frequencyMhz = 1090.0,
+        frequencyMhz = frequencyMhz,
         rawJson = jsonLine
       )
     } catch (_: Exception) {
@@ -27,7 +27,7 @@ object AdsbJsonParser {
     }
   }
 
-  fun parseAircraftArray(jsonText: String): List<SdrReading.Adsb> {
+  fun parseAircraftArray(jsonText: String, frequencyMhz: Double = 1090.0): List<SdrReading.Adsb> {
     return try {
       val json = JSONObject(jsonText)
       val aircraft = json.optJSONArray("aircraft") ?: return emptyList()
@@ -45,7 +45,7 @@ object AdsbJsonParser {
           squawk = obj.optStringOrNull("squawk"),
           rssi = obj.optDoubleOrNull("rssi"),
           snr = null,
-          frequencyMhz = 1090.0,
+          frequencyMhz = frequencyMhz,
           rawJson = obj.toString()
         )
       }

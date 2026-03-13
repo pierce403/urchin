@@ -94,6 +94,19 @@ ADSB_PROFILES = [
     {"hex": "A00009", "flight": "",         "category": "A0"}, # No callsign
 ]
 
+# ─── UAT 978 MHz Profiles ────────────────────────────────────────────────────
+# UAT is used primarily by GA aircraft below 18000 ft in US airspace.
+# Format is compatible with dump978/dump1090 JSON output.
+
+UAT_PROFILES = [
+    {"hex": "A10001", "flight": "N100AB ", "category": "A1"},  # GA single-engine
+    {"hex": "A10002", "flight": "N200CD ", "category": "A1"},
+    {"hex": "A10003", "flight": "N300EF ", "category": "A2"},  # GA multi-engine
+    {"hex": "A10004", "flight": "N400GH ", "category": "A1"},
+    {"hex": "A10005", "flight": "",         "category": "A1"}, # No callsign
+    {"hex": "A10006", "flight": "N500IJ ", "category": "A7"},  # Rotorcraft
+]
+
 # ─── P25 Profiles ──────────────────────────────────────────────────────────
 # Based on standard P25 trunked radio system metadata (TSBK control channel).
 # Unit IDs, talk group IDs, NAC, WACN, and system IDs are simulated.
@@ -207,6 +220,33 @@ def generate_p25(profile):
     }
 
 
+def generate_uat(profile):
+    """Generate a single UAT 978 MHz ADS-B JSON reading.
+    UAT aircraft are typically GA below 18000 ft."""
+    lat = round(random.uniform(25.0, 48.0), 4)
+    lon = round(random.uniform(-125.0, -70.0), 4)
+    alt = random.randint(500, 17500)  # UAT: below FL180
+    speed = round(random.uniform(60.0, 250.0), 1)  # GA speeds
+    heading = round(random.uniform(0.0, 360.0), 1)
+
+    reading = {
+        "hex": profile["hex"],
+        "type": "adsb_icao_nt",  # UAT non-transponder
+        "flight": profile["flight"],
+        "alt_baro": alt,
+        "alt_geom": alt + random.randint(-100, 100),
+        "gs": speed,
+        "track": heading,
+        "lat": lat,
+        "lon": lon,
+        "category": profile["category"],
+        "rssi": round(random.uniform(-30.0, -5.0), 1),
+    }
+    if not profile["flight"].strip():
+        del reading["flight"]
+    return reading
+
+
 def generate_adsb_aircraft_json(profiles, count=None):
     """Generate dump1090 aircraft.json format (array wrapper)."""
     if count is None:
@@ -275,6 +315,22 @@ def handle_adsb_client(conn, addr, adsb_profiles, interval, mode="line"):
         conn.close()
 
 
+def handle_uat_client(conn, addr, uat_profiles, interval):
+    """Send UAT 978 MHz readings to a connected client."""
+    print(f"[UAT] Client connected: {addr}")
+    try:
+        while True:
+            profile = random.choice(uat_profiles)
+            reading = generate_uat(profile)
+            line = json.dumps(reading) + "\n"
+            conn.sendall(line.encode("utf-8"))
+            time.sleep(interval)
+    except (BrokenPipeError, ConnectionResetError, OSError):
+        print(f"[UAT] Client disconnected: {addr}")
+    finally:
+        conn.close()
+
+
 def handle_p25_client(conn, addr, p25_profiles, interval):
     """Send P25 control channel metadata readings to a connected client."""
     print(f"[P25] Client connected: {addr}")
@@ -327,12 +383,16 @@ def main():
         help="TCP port for ADS-B data (default: 30003)"
     )
     parser.add_argument(
+        "--uat-port", type=int, default=30978,
+        help="TCP port for UAT 978 MHz data (default: 30978)"
+    )
+    parser.add_argument(
         "--p25-port", type=int, default=23456,
         help="TCP port for P25 data (default: 23456)"
     )
     parser.add_argument(
-        "--protocols", nargs="+", default=["tpms", "pocsag", "adsb", "p25"],
-        choices=["tpms", "pocsag", "adsb", "p25"],
+        "--protocols", nargs="+", default=["tpms", "pocsag", "adsb", "uat", "p25"],
+        choices=["tpms", "pocsag", "adsb", "uat", "p25"],
         help="Protocols to simulate (default: all)"
     )
     parser.add_argument(
@@ -378,6 +438,17 @@ def main():
             handle_p25_client,
             "P25",
             P25_PROFILES,
+            interval,
+        )
+        servers.append(s)
+
+    # UAT server
+    if "uat" in protocols:
+        s = start_server(
+            args.uat_port,
+            handle_uat_client,
+            "UAT",
+            UAT_PROFILES,
             interval,
         )
         servers.append(s)

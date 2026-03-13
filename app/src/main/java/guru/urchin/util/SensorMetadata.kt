@@ -110,7 +110,7 @@ object SensorPresentationBuilder {
 
     return when (protocol) {
       "pocsag" -> buildPocsag(device, metadata)
-      "adsb" -> buildAdsb(device, metadata)
+      "adsb", "uat" -> buildAdsb(device, metadata, protocol)
       "p25" -> buildP25(device, metadata)
       else -> buildTpms(device, metadata)
     }
@@ -188,7 +188,7 @@ object SensorPresentationBuilder {
     )
   }
 
-  private fun buildAdsb(device: DeviceEntity, metadata: SensorMetadata): SensorPresentation {
+  private fun buildAdsb(device: DeviceEntity, metadata: SensorMetadata, protocol: String = "adsb"): SensorPresentation {
     val callsignPart = metadata.adsbCallsign?.takeIf(String::isNotBlank)
     val preferredTitle = device.userCustomName?.takeIf(String::isNotBlank)
       ?: if (callsignPart != null) "Aircraft $callsignPart (${metadata.adsbIcao})"
@@ -223,7 +223,7 @@ object SensorPresentationBuilder {
       listSummary = listSummaryParts.joinToString(" • "),
       detailLines = detailLines,
       searchText = buildSearchText(preferredTitle, metadata),
-      protocolType = "adsb"
+      protocolType = protocol
     )
   }
 

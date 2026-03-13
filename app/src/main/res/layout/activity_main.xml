@@ -76,6 +76,13 @@
           android:text="@string/protocol_filter_adsb" />
 
         <com.google.android.material.chip.Chip
+          android:id="@+id/chipUat"
+          style="@style/Widget.MaterialComponents.Chip.Filter"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/protocol_filter_uat" />
+
+        <com.google.android.material.chip.Chip
           android:id="@+id/chipP25"
           style="@style/Widget.MaterialComponents.Chip.Filter"
           android:layout_width="wrap_content"
@@ -298,6 +305,30 @@
         android:layout_marginTop="4dp"
         android:text="@string/protocol_adsb"
         android:textColor="@color/urchin_on_surface" />
+
+      <CheckBox
+        android:id="@+id/protocolUat"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/protocol_uat"
+        android:textColor="@color/urchin_on_surface" />
+
+      <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/uatPortLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:visibility="gone">
+
+        <com.google.android.material.textfield.TextInputEditText
+          android:id="@+id/uatPortInput"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:hint="@string/uat_network_port"
+          android:inputType="number"
+          android:textColor="@color/urchin_on_surface" />
+      </com.google.android.material.textfield.TextInputLayout>
 
       <CheckBox
         android:id="@+id/protocolP25"
