@@ -12,8 +12,14 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.coroutines.launch
+import android.content.ContentValues
 import android.content.Intent
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import guru.urchin.R
+import guru.urchin.analysis.EobBuilder
+import guru.urchin.export.BulkExporter
 import guru.urchin.databinding.ActivityMainBinding
 import guru.urchin.scan.ContinuousScanPreferences
 import guru.urchin.scan.ContinuousScanService
@@ -190,6 +196,18 @@ class MainActivity : AppCompatActivity() {
         val enabled = !item.isChecked
         item.isChecked = enabled
         setContinuousScanningEnabled(enabled)
+        true
+      }
+      R.id.menu_timeline -> {
+        startActivity(Intent(this, TimelineActivity::class.java))
+        true
+      }
+      R.id.menu_eob -> {
+        showEobFormatDialog()
+        true
+      }
+      R.id.menu_export -> {
+        showExportFormatDialog()
         true
       }
       R.id.menu_diagnostics -> {
@@ -747,5 +765,103 @@ class MainActivity : AppCompatActivity() {
     val clip = android.content.ClipData.newPlainText("Sensor Info", clipText)
     clipboard.setPrimaryClip(clip)
     android.widget.Toast.makeText(this, getString(R.string.copied_to_clipboard_simple), android.widget.Toast.LENGTH_SHORT).show()
+  }
+
+  private fun showExportFormatDialog() {
+    val formats = arrayOf("CSV", "KML (Google Earth)", "GeoJSON")
+    androidx.appcompat.app.AlertDialog.Builder(this)
+      .setTitle(getString(R.string.export_format_title))
+      .setItems(formats) { _, which ->
+        lifecycleScope.launch {
+          runBulkExport(which)
+        }
+      }
+      .show()
+  }
+
+  private suspend fun runBulkExport(formatIndex: Int) {
+    val app = application as guru.urchin.UrchinApp
+    val devices = app.database.deviceDao().getDevices()
+    val sightings = app.database.sightingDao().getSightingsAfter(0)
+    if (devices.isEmpty()) {
+      android.widget.Toast.makeText(this, getString(R.string.export_no_data), android.widget.Toast.LENGTH_SHORT).show()
+      return
+    }
+    val result = when (formatIndex) {
+      0 -> BulkExporter.exportCsv(devices, sightings)
+      1 -> BulkExporter.exportKml(devices, sightings)
+      2 -> BulkExporter.exportGeoJson(devices, sightings)
+      else -> return
+    }
+    saveExportToDownloads(result)
+  }
+
+  private fun showEobFormatDialog() {
+    val formats = arrayOf("JSON", "Text (plain)")
+    androidx.appcompat.app.AlertDialog.Builder(this)
+      .setTitle(getString(R.string.eob_report_title))
+      .setItems(formats) { _, which ->
+        lifecycleScope.launch {
+          runEobReport(which)
+        }
+      }
+      .show()
+  }
+
+  private suspend fun runEobReport(formatIndex: Int) {
+    val app = application as guru.urchin.UrchinApp
+    val devices = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+      app.database.deviceDao().getDevices()
+    }
+    val sightings = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+      app.database.sightingDao().getSightingsAfter(0)
+    }
+    val correlations = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+      app.database.correlationDao().getAllCorrelations()
+    }
+    if (devices.isEmpty()) {
+      android.widget.Toast.makeText(this, getString(R.string.export_no_data), android.widget.Toast.LENGTH_SHORT).show()
+      return
+    }
+    val result = when (formatIndex) {
+      0 -> BulkExporter.ExportResult(
+        "urchin-eob.json",
+        EobBuilder.buildReport(devices, sightings, correlations),
+        "application/json"
+      )
+      1 -> BulkExporter.ExportResult(
+        "urchin-eob.txt",
+        EobBuilder.buildTextReport(devices, sightings, correlations),
+        "text/plain"
+      )
+      else -> return
+    }
+    saveExportToDownloads(result)
+  }
+
+  private fun saveExportToDownloads(result: BulkExporter.ExportResult) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      val values = ContentValues().apply {
+        put(MediaStore.Downloads.DISPLAY_NAME, result.fileName)
+        put(MediaStore.Downloads.MIME_TYPE, result.mimeType)
+        put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+        put(MediaStore.Downloads.IS_PENDING, 1)
+      }
+      val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+      if (uri != null) {
+        contentResolver.openOutputStream(uri)?.use { it.write(result.content.toByteArray()) }
+        values.clear()
+        values.put(MediaStore.Downloads.IS_PENDING, 0)
+        contentResolver.update(uri, values, null, null)
+        android.widget.Toast.makeText(this, getString(R.string.export_saved, result.fileName), android.widget.Toast.LENGTH_SHORT).show()
+      } else {
+        android.widget.Toast.makeText(this, getString(R.string.device_json_save_failed), android.widget.Toast.LENGTH_SHORT).show()
+      }
+    } else {
+      val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+      val file = java.io.File(dir, result.fileName)
+      file.writeText(result.content)
+      android.widget.Toast.makeText(this, getString(R.string.export_saved, result.fileName), android.widget.Toast.LENGTH_SHORT).show()
+    }
   }
 }

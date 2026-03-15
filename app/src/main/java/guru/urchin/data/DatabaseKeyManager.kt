@@ -63,6 +63,19 @@ object DatabaseKeyManager {
     return cipher.doFinal(ciphertext)
   }
 
+  fun destroyKey(context: Context) {
+    // Remove the wrapped passphrase from SharedPreferences
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      .edit().remove(PREF_WRAPPED_KEY).commit()
+
+    // Delete the Keystore master key
+    try {
+      val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE)
+      keyStore.load(null)
+      keyStore.deleteEntry(KEYSTORE_ALIAS)
+    } catch (_: Exception) {}
+  }
+
   private fun getOrCreateMasterKey(): SecretKey {
     val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE)
     keyStore.load(null)

@@ -94,6 +94,22 @@
   <string name="zwave_network_port">Z-Wave port (default 1682)</string>
   <string name="sidewalk_network_port">Sidewalk port (default 1683)</string>
 
+  <!-- Timeline -->
+  <string name="activity_timeline">Activity timeline</string>
+
+  <!-- Correlation -->
+  <string name="related_emitters">Related emitters</string>
+
+  <!-- EOB -->
+  <string name="eob_report">EOB report</string>
+  <string name="eob_report_title">EOB Report Format</string>
+
+  <!-- Bulk export -->
+  <string name="bulk_export">Export all data</string>
+  <string name="export_format_title">Export format</string>
+  <string name="export_saved">Saved %1$s to Downloads.</string>
+  <string name="export_no_data">No data to export.</string>
+
   <!-- Connection test -->
   <string name="test_connection">Test connection</string>
   <string name="testing_connection">Testing\u2026</string>

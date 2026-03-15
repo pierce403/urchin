@@ -553,16 +553,31 @@ class SdrController(
     return frequencies.distinct()
   }
 
+  private val lastObservationTime = HashMap<String, Long>()
+
+  /** Minimum interval between recorded observations for the same device key. */
+  private companion object {
+    const val MIN_OBSERVATION_INTERVAL_MS = 100L
+  }
+
   internal fun handleSdrReading(reading: SdrReading) {
     val input = ObservationBuilderRegistry.build(reading)
+    val now = System.currentTimeMillis()
     ScanDiagnosticsStore.update {
       it.copy(
         sdrCallbackCount = it.sdrCallbackCount + 1,
         rawCallbackCount = it.rawCallbackCount + 1,
-        lastReadingAt = System.currentTimeMillis(),
+        lastReadingAt = now,
         lastError = null
       )
     }
+
+    // Rate-limit per device key to prevent database flooding from noisy/malicious sources
+    val deviceKey = guru.urchin.scan.DeviceKey.from(input)
+    val lastTime = lastObservationTime[deviceKey]
+    if (lastTime != null && now - lastTime < MIN_OBSERVATION_INTERVAL_MS) return
+    lastObservationTime[deviceKey] = now
+
     val logMessage = when (reading) {
       is SdrReading.Tpms -> "SDR tpms model=${reading.model} sensor=${reading.sensorId} " +
         "pressure=${reading.pressureKpa} temp=${reading.temperatureC}"

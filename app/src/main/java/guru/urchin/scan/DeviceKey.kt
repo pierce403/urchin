@@ -31,6 +31,10 @@ object DeviceKey {
         "zwave:${input.zwaveHomeId.uppercase()}:${input.zwaveNodeId ?: 0}"
       !input.sidewalkSmsn.isNullOrBlank() ->
         "sidewalk:${input.sidewalkSmsn.uppercase()}"
+      !input.dmrRadioId.isNullOrBlank() ->
+        "dmr:${input.dmrRadioId}"
+      !input.nxdnUnitId.isNullOrBlank() ->
+        "nxdn:${input.nxdnUnitId}"
       !input.tpmsSensorId.isNullOrBlank() ->
         "tpms:${input.tpmsModel.orEmpty().lowercase()}:${input.tpmsSensorId.uppercase()}"
       !input.normalizedAddress.isNullOrBlank() -> "a:${input.normalizedAddress}"

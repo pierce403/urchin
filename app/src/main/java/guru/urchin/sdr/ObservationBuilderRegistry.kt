@@ -14,5 +14,7 @@ object ObservationBuilderRegistry {
     is SdrReading.WmBus -> WmBusObservationBuilder.build(reading)
     is SdrReading.Zwave -> ZwaveObservationBuilder.build(reading)
     is SdrReading.Sidewalk -> SidewalkObservationBuilder.build(reading)
+    is SdrReading.Dmr -> DmrObservationBuilder.build(reading)
+    is SdrReading.Nxdn -> NxdnObservationBuilder.build(reading)
   }
 }

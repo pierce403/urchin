@@ -29,6 +29,8 @@ object MeshtasticObservationBuilder {
       meshHopLimit = reading.hopLimit,
       meshHopStart = reading.hopStart,
       meshChannelHash = reading.channelHash,
+      meshPortNum = reading.portNum,
+      meshPayloadText = reading.payloadText,
       rawJson = reading.rawJson
     )
   }

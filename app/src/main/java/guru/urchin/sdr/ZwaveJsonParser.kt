@@ -11,13 +11,19 @@ import org.json.JSONObject
  * ```
  */
 object ZwaveJsonParser {
+  private const val MAX_JSON_LENGTH = 10_000
+  private val HOME_ID_RE = Regex("[0-9A-Fa-f]{8}")
+
   fun parse(jsonLine: String): SdrReading.Zwave? {
+    if (jsonLine.length > MAX_JSON_LENGTH) return null
     return try {
       val json = JSONObject(jsonLine)
       if (json.optString("type") != "zwave") return null
 
-      val homeId = json.optStringOrNull("home_id") ?: return null
-      val nodeId = json.optIntOrNull("node_id") ?: return null
+      val homeId = json.optStringOrNull("home_id")
+        ?.takeIf { it.matches(HOME_ID_RE) } ?: return null
+      val nodeId = json.optIntOrNull("node_id")
+        ?.takeIf { it in 1..232 } ?: return null
 
       SdrReading.Zwave(
         homeId = homeId,

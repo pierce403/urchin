@@ -112,6 +112,31 @@ class DeviceDetailActivity : AppCompatActivity() {
             adapter.submitList(sightings)
           }
         }
+
+        launch {
+          app.database.correlationDao().observeCorrelations(deviceKey).collect { correlations ->
+            if (correlations.isEmpty()) {
+              binding.relatedEmittersLabel.isVisible = false
+              binding.relatedEmittersList.isVisible = false
+              return@collect
+            }
+            binding.relatedEmittersLabel.isVisible = true
+            binding.relatedEmittersList.isVisible = true
+            val lines = correlations.map { c ->
+              val otherKey = if (c.deviceKeyA == deviceKey) c.deviceKeyB else c.deviceKeyA
+              val otherDevice = withContext(Dispatchers.IO) {
+                app.database.deviceDao().getDevice(otherKey)
+              }
+              val name = otherDevice?.userCustomName
+                ?: otherDevice?.displayName
+                ?: otherKey.take(8)
+              val protocol = otherDevice?.protocolType?.uppercase() ?: "?"
+              val pct = (c.confidence * 100).toInt()
+              "$protocol  $name  ($pct% confidence, ${c.coOccurrences} co-occurrences)"
+            }
+            binding.relatedEmittersList.text = lines.joinToString("\n")
+          }
+        }
       }
     }
   }

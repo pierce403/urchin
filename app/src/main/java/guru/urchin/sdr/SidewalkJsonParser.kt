@@ -11,12 +11,17 @@ import org.json.JSONObject
  * ```
  */
 object SidewalkJsonParser {
+  private const val MAX_JSON_LENGTH = 10_000
+  private val SMSN_RE = Regex("[0-9A-Fa-f]{10}")
+
   fun parse(jsonLine: String): SdrReading.Sidewalk? {
+    if (jsonLine.length > MAX_JSON_LENGTH) return null
     return try {
       val json = JSONObject(jsonLine)
       if (json.optString("type") != "sidewalk") return null
 
-      val smsn = json.optStringOrNull("smsn") ?: return null
+      val smsn = json.optStringOrNull("smsn")
+        ?.takeIf { it.matches(SMSN_RE) } ?: return null
 
       SdrReading.Sidewalk(
         smsn = smsn,

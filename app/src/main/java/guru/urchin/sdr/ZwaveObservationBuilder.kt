@@ -23,6 +23,9 @@ object ZwaveObservationBuilder {
       zwaveHomeId = reading.homeId,
       zwaveNodeId = reading.nodeId,
       zwaveFrameType = reading.frameType,
+      zwaveCommandClass = reading.commandClass,
+      zwaveNodeRole = reading.nodeRole,
+      zwaveSecurityLevel = reading.securityLevel,
       rawJson = reading.rawJson
     )
   }

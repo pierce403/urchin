@@ -18,6 +18,18 @@
       android:title="@string/continuous_scanning"
       app:showAsAction="never" />
   <item
+      android:id="@+id/menu_timeline"
+      android:title="@string/activity_timeline"
+      app:showAsAction="never" />
+  <item
+      android:id="@+id/menu_eob"
+      android:title="@string/eob_report"
+      app:showAsAction="never" />
+  <item
+      android:id="@+id/menu_export"
+      android:title="@string/bulk_export"
+      app:showAsAction="never" />
+  <item
       android:id="@+id/menu_diagnostics"
       android:title="@string/diagnostics"
       app:showAsAction="never" />

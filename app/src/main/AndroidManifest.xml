@@ -2,6 +2,8 @@
 
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
@@ -14,6 +16,9 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Urchin">
+        <activity
+            android:name=".ui.TimelineActivity"
+            android:exported="false" />
         <activity
             android:name=".ui.AlertsActivity"
             android:exported="false" />
@@ -66,6 +71,14 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".util.PanicWipeReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="guru.urchin.action.PANIC_WIPE" />
             </intent-filter>
         </receiver>
 

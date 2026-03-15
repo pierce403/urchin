@@ -12,7 +12,10 @@ enum class AlertRuleType(
 ) {
   NAME("name", "Name", "Device name, model, or callsign"),
   ID("id", "Sensor ID", "TPMS ID, ICAO hex, CAP code, or unit ID"),
-  PROTOCOL("protocol", "Protocol", "tpms, pocsag, adsb, uat, p25, lorawan, meshtastic, wmbus, zwave, or sidewalk");
+  PROTOCOL("protocol", "Protocol", "tpms, pocsag, adsb, uat, p25, lorawan, meshtastic, wmbus, zwave, or sidewalk"),
+  RSSI_THRESHOLD("rssi_threshold", "Proximity (RSSI)", "Protocol and RSSI threshold (e.g. -50)"),
+  NEW_DEVICE("new_device", "New device", "Protocol to watch for new emitters"),
+  ABSENCE("absence", "Absence", "Protocol and absence timeout in minutes");
 
   companion object {
     fun fromStorageValue(value: String?): AlertRuleType? {
@@ -81,7 +84,9 @@ data class AlertObservation(
   val displayName: String?,
   val sensorId: String?,
   val protocolType: String?,
-  val source: String
+  val source: String,
+  val rssi: Int = 0,
+  val isNewDevice: Boolean = false
 )
 
 data class AlertMatch(
@@ -136,6 +141,21 @@ object DeviceAlertMatcher {
         }
         AlertRuleType.PROTOCOL -> {
           observation.protocolType?.lowercase() == rule.matchPattern
+        }
+        AlertRuleType.RSSI_THRESHOLD -> {
+          val threshold = rule.rssiThreshold ?: return@mapNotNull null
+          val protocolMatch = rule.matchPattern.isEmpty() ||
+            observation.protocolType?.lowercase() == rule.matchPattern
+          protocolMatch && observation.rssi >= threshold
+        }
+        AlertRuleType.NEW_DEVICE -> {
+          val protocolMatch = rule.matchPattern.isEmpty() ||
+            observation.protocolType?.lowercase() == rule.matchPattern
+          protocolMatch && observation.isNewDevice
+        }
+        AlertRuleType.ABSENCE -> {
+          // Absence alerts are evaluated externally by the absence checker, not here
+          false
         }
       }
 

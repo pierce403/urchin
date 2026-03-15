@@ -23,6 +23,9 @@ class DeviceRepository(
 
     private const val RETENTION_DAYS_MESHTASTIC = 14L
     private const val RETENTION_DAYS_SIDEWALK = 14L
+    // WmBus meters and Z-Wave nodes are fixed infrastructure — retain longer
+    private const val RETENTION_DAYS_WMBUS = 30L
+    private const val RETENTION_DAYS_ZWAVE = 30L
 
     fun retentionDaysForProtocol(protocolType: String?): Long = when (protocolType) {
       "adsb" -> RETENTION_DAYS_ADSB
@@ -30,6 +33,8 @@ class DeviceRepository(
       "lorawan" -> RETENTION_DAYS_LORAWAN
       "meshtastic" -> RETENTION_DAYS_MESHTASTIC
       "sidewalk" -> RETENTION_DAYS_SIDEWALK
+      "wmbus" -> RETENTION_DAYS_WMBUS
+      "zwave" -> RETENTION_DAYS_ZWAVE
       else -> RETENTION_DAYS_DEFAULT
     }
   }
@@ -116,7 +121,9 @@ class DeviceRepository(
             name = observation.name,
             address = observation.address,
             metadataJson = observation.metadataJson,
-            protocolType = observation.protocolType
+            protocolType = observation.protocolType,
+            receiverLat = observation.receiverLat,
+            receiverLon = observation.receiverLon
           )
         )
       }

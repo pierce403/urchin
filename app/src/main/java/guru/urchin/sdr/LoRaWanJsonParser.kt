@@ -1,6 +1,7 @@
 package guru.urchin.sdr
 
 import android.util.Base64
+import android.util.Log
 import org.json.JSONObject
 
 /**
@@ -15,7 +16,10 @@ import org.json.JSONObject
  * (MHDR types 0x40 and 0x80) bytes 1–4 are the 4-byte DevAddr in little-endian order.
  */
 object LoRaWanJsonParser {
+  private const val MAX_JSON_LENGTH = 10_000
+
   fun parse(jsonLine: String): SdrReading.LoRaWan? {
+    if (jsonLine.length > MAX_JSON_LENGTH) return null
     return try {
       val json = JSONObject(jsonLine)
       if (json.optString("type") != "lorawan") return null
@@ -47,7 +51,8 @@ object LoRaWanJsonParser {
     if (base64Data.isNullOrBlank()) return null
     val bytes = try {
       Base64.decode(base64Data, Base64.DEFAULT)
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+      Log.d("LoRaWanJsonParser", "Failed to decode base64 payload: ${e.message}")
       return null
     }
     if (bytes.size < 5) return null

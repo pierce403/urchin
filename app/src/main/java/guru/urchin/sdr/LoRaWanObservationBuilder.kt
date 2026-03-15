@@ -26,6 +26,9 @@ object LoRaWanObservationBuilder {
       loraCodingRate = reading.codingRate,
       loraPayloadSize = reading.payloadSize,
       loraCrcOk = reading.crcOk,
+      loraFPort = reading.fPort,
+      loraFrameCounter = reading.frameCounter,
+      loraMType = reading.mType,
       rawJson = reading.rawJson
     )
   }

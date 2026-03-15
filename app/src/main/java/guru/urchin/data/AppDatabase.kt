@@ -15,9 +15,10 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
     AlertRuleEntity::class,
     AffinityGroupEntity::class,
     AffinityGroupMemberEntity::class,
-    AffinityImportLogEntity::class
+    AffinityImportLogEntity::class,
+    CorrelationEntity::class
   ],
-  version = 8,
+  version = 11,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -25,6 +26,7 @@ abstract class AppDatabase : RoomDatabase() {
   abstract fun sightingDao(): SightingDao
   abstract fun alertRuleDao(): AlertRuleDao
   abstract fun affinityGroupDao(): AffinityGroupDao
+  abstract fun correlationDao(): CorrelationDao
 
   companion object {
     val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -131,6 +133,41 @@ abstract class AppDatabase : RoomDatabase() {
       }
     }
 
+    private val MIGRATION_8_9 = object : Migration(8, 9) {
+      override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE sightings ADD COLUMN receiverLat REAL DEFAULT NULL")
+        db.execSQL("ALTER TABLE sightings ADD COLUMN receiverLon REAL DEFAULT NULL")
+      }
+    }
+
+    private val MIGRATION_9_10 = object : Migration(9, 10) {
+      override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+          """
+          CREATE TABLE IF NOT EXISTS `correlations` (
+            `deviceKeyA` TEXT NOT NULL,
+            `deviceKeyB` TEXT NOT NULL,
+            `correlationType` TEXT NOT NULL,
+            `confidence` REAL NOT NULL,
+            `coOccurrences` INTEGER NOT NULL,
+            `firstCorrelated` INTEGER NOT NULL,
+            `lastCorrelated` INTEGER NOT NULL,
+            PRIMARY KEY(`deviceKeyA`, `deviceKeyB`)
+          )
+          """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_correlations_deviceKeyA ON correlations(deviceKeyA)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_correlations_deviceKeyB ON correlations(deviceKeyB)")
+      }
+    }
+
+    private val MIGRATION_10_11 = object : Migration(10, 11) {
+      override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE alert_rules ADD COLUMN rssiThreshold INTEGER DEFAULT NULL")
+        db.execSQL("ALTER TABLE alert_rules ADD COLUMN absenceMinutes INTEGER DEFAULT NULL")
+      }
+    }
+
     fun build(context: Context): AppDatabase {
       val passphrase = DatabaseKeyManager.getOrCreatePassphrase(context)
       val openMode = DatabaseMigrationHelper.prepareOpenMode(context, passphrase)
@@ -141,7 +178,8 @@ abstract class AppDatabase : RoomDatabase() {
       )
         .addMigrations(
           MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-          MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8
+          MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
+          MIGRATION_9_10, MIGRATION_10_11
         )
         .fallbackToDestructiveMigration()
       if (openMode == DatabaseMigrationHelper.OpenMode.ENCRYPTED) {

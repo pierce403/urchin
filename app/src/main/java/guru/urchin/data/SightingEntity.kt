@@ -16,5 +16,7 @@ data class SightingEntity(
   val name: String?,
   val address: String?,
   val metadataJson: String?,
-  val protocolType: String? = null
+  val protocolType: String? = null,
+  val receiverLat: Double? = null,
+  val receiverLon: Double? = null
 )

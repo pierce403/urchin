@@ -56,6 +56,10 @@ sealed class SdrReading {
     val wacn: String?,
     val systemId: String?,
     val talkGroupId: String?,
+    val encryptionAlgorithm: String? = null,
+    val encryptionKeyId: String? = null,
+    val emergency: Boolean? = null,
+    val voiceOrData: String? = null,
     override val rssi: Double?,
     override val snr: Double?,
     override val frequencyMhz: Double?,
@@ -68,6 +72,9 @@ sealed class SdrReading {
     val codingRate: String?,
     val payloadSize: Int?,
     val crcOk: Boolean?,
+    val fPort: Int? = null,
+    val frameCounter: Int? = null,
+    val mType: String? = null,
     override val rssi: Double?,
     override val snr: Double?,
     override val frequencyMhz: Double?,
@@ -81,6 +88,8 @@ sealed class SdrReading {
     val hopLimit: Int?,
     val hopStart: Int?,
     val channelHash: String?,
+    val portNum: String? = null,
+    val payloadText: String? = null,
     override val rssi: Double?,
     override val snr: Double?,
     override val frequencyMhz: Double?,
@@ -102,6 +111,9 @@ sealed class SdrReading {
     val homeId: String,
     val nodeId: Int,
     val frameType: String?,
+    val commandClass: String? = null,
+    val nodeRole: String? = null,
+    val securityLevel: String? = null,
     override val rssi: Double?,
     override val snr: Double?,
     override val frequencyMhz: Double?,
@@ -111,6 +123,30 @@ sealed class SdrReading {
   data class Sidewalk(
     val smsn: String,
     val frameType: String?,
+    override val rssi: Double?,
+    override val snr: Double?,
+    override val frequencyMhz: Double?,
+    override val rawJson: String
+  ) : SdrReading()
+
+  data class Dmr(
+    val radioId: String,
+    val colorCode: Int?,
+    val slot: Int?,
+    val talkGroup: String?,
+    val dataType: String? = null,
+    val encrypted: Boolean? = null,
+    override val rssi: Double?,
+    override val snr: Double?,
+    override val frequencyMhz: Double?,
+    override val rawJson: String
+  ) : SdrReading()
+
+  data class Nxdn(
+    val unitId: String,
+    val ran: Int?,
+    val talkGroup: String?,
+    val messageType: String? = null,
     override val rssi: Double?,
     override val snr: Double?,
     override val frequencyMhz: Double?,

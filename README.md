@@ -1,6 +1,6 @@
 # Urchin
 
-Urchin is an Android SDR app for local RF reconnaissance. It captures and displays observations from ten radio protocols — TPMS, POCSAG, ADS-B, UAT, P25, LoRaWAN, Meshtastic, Wireless M-Bus, Z-Wave, and Amazon Sidewalk — using either:
+Urchin is an Android SDR app for local RF reconnaissance. It captures and displays observations from twelve radio protocols — TPMS, POCSAG, ADS-B, UAT, P25, LoRaWAN, Meshtastic, Wireless M-Bus, Z-Wave, Amazon Sidewalk, DMR, and NXDN — using either:
 
 - A USB-attached RTL-SDR dongle
 - Network bridges streaming protocol-specific TCP output over the local network
@@ -32,12 +32,93 @@ The project landing page is at `https://urchin.guru/`.
 | Wireless M-Bus | 868.95 MHz (EU only) | wmbus_json_bridge | 1681 |
 | Z-Wave | 908.42 MHz (US only) | zwave_json_bridge | 1682 |
 | Amazon Sidewalk | 900 MHz (US) | sidewalk_json_bridge | 1683 |
+| DMR | 400 / 900 MHz | dmr_json_bridge | 1684 |
+| NXDN | 700 / 800 / 900 MHz | nxdn_json_bridge | 1685 |
 
 - USB mode auto-detects supported hardware by VID/PID (RTL2832U dongles and HackRF One)
 - When multiple USB SDR devices are connected, Urchin assigns one dongle per frequency; with a single dongle, it uses frequency hopping
 - Network mode connects to per-protocol bridges on configurable ports
 - A Raspberry Pi running [sdr-pi](https://github.com/ingmarvg/sdr-pi) can host your SDR dongles and stream observation data to the app over TCP
 - Gain is optional; leaving it blank keeps automatic gain handling
+
+### Receiver geolocation
+
+- Every observation is GPS-stamped with the receiver's position (latitude, longitude, altitude, accuracy)
+- Uses the platform LocationManager — no Google Play Services dependency, works on de-Googled / hardened devices
+- ADS-B targets with known positions get computed range (km) and bearing (degrees) from receiver
+- Location data is persisted in the sightings table for spatial analysis
+
+### Bulk data export
+
+- Export the full device and sighting database in CSV, KML, or GeoJSON format
+- CSV includes all protocol fields for spreadsheet/database analysis
+- KML places geolocated sightings as Placemarks with protocol-typed icons for Google Earth
+- GeoJSON FeatureCollection for GIS toolchains
+- ADS-B aircraft positions exported with altitude and ICAO annotations
+- Available from the main menu under **Export all data**
+
+### Cross-protocol correlation
+
+- Automatically identifies emitters across different protocols that consistently co-occur (within a 30-second window)
+- Detects co-traveling or co-located devices — e.g., a vehicle's TPMS sensors appearing alongside a Meshtastic node
+- Confidence scores based on co-occurrence frequency relative to total sightings
+- Correlated emitters displayed as "Related emitters" in the device detail view
+- Runs every 15 minutes in the background
+
+### Activity timeline
+
+- 24-hour activity histograms per protocol for pattern-of-life analysis
+- Reveals commute patterns, shift changes, operational schedules
+- Global all-protocol overview plus per-protocol breakdowns
+- Available from the main menu under **Activity timeline**
+
+### Anomaly detection
+
+- Automatically flags unusual RF activity against rolling baselines
+- Detects new emitter surges (N new devices in T minutes above baseline)
+- Detects RSSI anomalies (familiar device at unexpected signal strength — moved or new transmitter)
+- Results logged to diagnostics
+
+### Electronic Order of Battle (EOB)
+
+- Generates a structured inventory of all observed RF emitters organized by protocol
+- Per-protocol summaries: unique emitter counts, RSSI statistics, temporal density
+- Top emitters ranked by observation count
+- Correlated device clusters included
+- Export as JSON or plain text from the main menu under **EOB report**
+
+### Deep packet inspection
+
+- Extended protocol parsing extracts operational content beyond identity:
+  - **P25**: encryption algorithm/key ID, emergency flag, voice/data type
+  - **LoRaWAN**: FPort (application identifier), frame counter, message type
+  - **Meshtastic**: port number, unencrypted payload text
+  - **Z-Wave**: command class, node role, security level
+
+### IQ recording
+
+- Record raw IQ samples to file for offline analysis or forensic evidence
+- Pre-trigger circular buffer (2 MB, ~0.5 seconds at 2 MS/s) captures signal before manual trigger
+- Auto-stop after configurable duration (default 30 seconds)
+- Metadata per recording: center frequency, sample rate, gain, timestamp, trigger reason
+
+### Spectrum waterfall display
+
+- Real-time waterfall/spectrogram visualization with scrolling heatmap
+- Magnitude-to-color mapping (dark blue = noise floor, red/white = strong signal)
+- Frequency axis labels for tuned bandwidth
+
+### Direction finding
+
+- RSSI-based bearing estimation using phone compass/magnetometer
+- Polar compass rose display correlating signal strength with receiver heading
+- Weighted circular mean computes peak-signal bearing
+- Best used with directional antenna (Yagi/log-periodic)
+
+### OPSEC hardening
+
+- **Panic wipe**: destroys the Keystore encryption key, clears all database tables, overwrites database files with random bytes, and clears SharedPreferences. Triggered via broadcast intent or widget
+- **Secure key destruction**: deletes the Android Keystore master key so the database passphrase cannot be recovered
 
 ### Observation management
 
@@ -50,6 +131,9 @@ The project landing page is at `https://urchin.guru/`.
 
 - Configurable alert rules that trigger audio and notification alerts when matching devices are observed
 - Match by device name, model, sensor ID, ICAO hex, CAP code, unit ID, or protocol
+- **Proximity alerts**: fire when RSSI exceeds a threshold (signal stronger than -N dBm = target is close)
+- **New device alerts**: fire on first-ever observation of a device on a given protocol
+- **Absence alerts**: fire when a device has not been seen for N minutes (target departed)
 
 ### Affinity groups
 
@@ -57,6 +141,7 @@ The project landing page is at `https://urchin.guru/`.
 - AES-256-GCM encryption with shared group keys, ECDH P-256 key agreement, and HKDF-SHA256 key derivation
 - Create groups, invite members, export/import bundles, revoke members with automatic key rotation
 - No server required — bundles are exchanged as files
+- Real-time streaming mode: live encrypted observation sharing over TCP relay using the group's AES-256-GCM key
 
 ### Continuous scanning
 
@@ -218,6 +303,59 @@ python scripts/sdr-simulator.py
 ```
 
 It emits simulated TPMS, POCSAG, ADS-B, UAT, P25, LoRaWAN, Meshtastic, Wireless M-Bus, Z-Wave, and Amazon Sidewalk data on configurable TCP ports. Use `--protocols` to select specific protocols, `--burst` for stress testing, and `--help` for all options.
+
+## SIGINT feature setup and verification
+
+### Setting up receiver geolocation
+
+Grant `ACCESS_FINE_LOCATION` permission when prompted (or via app settings). GPS starts automatically when the app launches.
+
+Start a scan, observe a few devices, then check a device's detail view — the raw JSON metadata should include `receiverLat` and `receiverLon` fields. For ADS-B targets with known positions, `adsbRangeKm` and `adsbBearingDeg` fields will also appear.
+
+### Using bulk export
+
+No additional setup. Available from the overflow menu.
+
+Menu > **Export all data** > select CSV, KML, or GeoJSON. The file is saved to the Downloads folder. Open the CSV in a spreadsheet to confirm all protocol fields are populated. Import the KML into Google Earth to see geolocated sightings as placemarks.
+
+### Verifying cross-protocol correlation
+
+Runs automatically every 15 minutes when the app is active. Requires observations across at least two different protocols.
+
+Use `python scripts/sdr-simulator.py` with multiple protocols to generate co-timed observations. After 15 minutes, open a device's detail view — if correlations were found, a "Related emitters" section appears showing the correlated devices with confidence percentages.
+
+### Using the activity timeline
+
+Menu > **Activity timeline**. Histograms show 24-hour activity patterns per protocol. Bars represent relative observation counts per hour.
+
+### Configuring enhanced alerts
+
+Menu > **Alerts** > tap + to create a new rule. Select "Proximity (RSSI)" or "New device" as the match type.
+
+- **Proximity**: Set an RSSI threshold (e.g., -50). Approach the target transmitter — alert fires when signal exceeds the threshold.
+- **New device**: Set a protocol filter. Alert fires on the first observation of any previously-unseen device on that protocol.
+
+### Generating an EOB report
+
+Menu > **EOB report** > select JSON or Text. The report is saved to Downloads. Open it to see per-protocol emitter inventories, RSSI statistics, and correlated clusters.
+
+### Using direction finding
+
+The `DirectionFinderView` compass rose view is available programmatically. Feed heading-RSSI pairs from the phone's magnetometer while rotating with a directional antenna. The view shows a polar plot with the estimated peak-signal bearing.
+
+### Triggering panic wipe
+
+Send the broadcast intent `guru.urchin.action.PANIC_WIPE` to the app. This destroys the database encryption key, clears all tables, overwrites the database file with random data, and clears preferences. **Warning**: this is irreversible.
+
+```bash
+adb shell am broadcast -a guru.urchin.action.PANIC_WIPE -p guru.urchin
+```
+
+### Setting up DMR and NXDN
+
+Enable DMR or NXDN in the protocol toggles. In network mode, configure the bridge host and ports (default 1684 for DMR, 1685 for NXDN). Requires a compatible decoder on the bridge side (e.g., a DMR decoder producing JSON with `type`, `radio_id`, `color_code`, `slot`, `talkgroup` fields).
+
+Use the simulator or a real DMR/NXDN bridge. Devices should appear in the list with protocol chips "DMR" or "NXDN".
 
 ## Privacy
 

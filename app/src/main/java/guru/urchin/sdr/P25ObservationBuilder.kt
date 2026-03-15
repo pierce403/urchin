@@ -26,6 +26,10 @@ object P25ObservationBuilder {
       p25Wacn = reading.wacn,
       p25SystemId = reading.systemId,
       p25TalkGroupId = reading.talkGroupId,
+      p25EncryptionAlgorithm = reading.encryptionAlgorithm,
+      p25EncryptionKeyId = reading.encryptionKeyId,
+      p25Emergency = reading.emergency,
+      p25VoiceOrData = reading.voiceOrData,
       rawJson = reading.rawJson
     )
   }

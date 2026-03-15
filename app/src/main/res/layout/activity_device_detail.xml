@@ -115,6 +115,26 @@
         android:textIsSelectable="true" />
 
       <TextView
+        android:id="@+id/relatedEmittersLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:text="@string/related_emitters"
+        android:textColor="@color/urchin_secondary"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+      <TextView
+        android:id="@+id/relatedEmittersList"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/panel_surface_subtle"
+        android:padding="16dp"
+        android:textColor="@color/urchin_on_surface"
+        android:visibility="gone" />
+
+      <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="18dp"

@@ -19,7 +19,8 @@ class ObservationRecorder(
   private val repository: DeviceRepository,
   private val scope: CoroutineScope,
   private val alertRuleRepository: AlertRuleRepository? = null,
-  private val alertNotifier: DeviceAlertNotifier? = null
+  private val alertNotifier: DeviceAlertNotifier? = null,
+  var locationProvider: LocationProvider? = null
 ) {
   private var alertRules: List<AlertRuleEntity> = emptyList()
   private val firedAlertKeys = mutableSetOf<String>()
@@ -39,37 +40,55 @@ class ObservationRecorder(
     ScanDiagnosticsStore.update {
       it.copy(deviceKeys = it.deviceKeys + key)
     }
-    val metadata = buildMetadataJson(input)
+    val fix = locationProvider?.lastFix
+    val stamped = if (fix != null && input.receiverLat == null) {
+      input.copy(
+        receiverLat = fix.latitude,
+        receiverLon = fix.longitude,
+        receiverAltitude = fix.altitude,
+        receiverAccuracy = fix.accuracyMeters
+      )
+    } else {
+      input
+    }
+    val metadata = buildMetadataJson(stamped)
     DebugLog.log(
-      "Observation ${input.source} protocol=${input.protocolType ?: "unknown"} rssi=${input.rssi}"
+      "Observation ${stamped.source} protocol=${stamped.protocolType ?: "unknown"} rssi=${stamped.rssi}"
     )
     val observation = DeviceObservation(
       deviceKey = key,
-      name = input.name,
-      address = input.tpmsSensorId ?: input.pocsagCapCode ?: input.adsbIcao ?: input.p25UnitId ?: input.loraDevAddr ?: input.meshNodeId ?: input.wmbusSerialNumber ?: input.zwaveHomeId ?: input.sidewalkSmsn ?: input.address,
-      rssi = input.rssi,
-      timestamp = input.timestamp,
+      name = stamped.name,
+      address = stamped.tpmsSensorId ?: stamped.pocsagCapCode ?: stamped.adsbIcao ?: stamped.p25UnitId ?: stamped.loraDevAddr ?: stamped.meshNodeId ?: stamped.wmbusSerialNumber ?: stamped.zwaveHomeId ?: stamped.sidewalkSmsn ?: stamped.dmrRadioId ?: stamped.nxdnUnitId ?: stamped.address,
+      rssi = stamped.rssi,
+      timestamp = stamped.timestamp,
       metadataJson = metadata,
-      protocolType = input.protocolType
+      protocolType = stamped.protocolType,
+      receiverLat = stamped.receiverLat,
+      receiverLon = stamped.receiverLon
     )
 
-    evaluateAlerts(input, key)
+    evaluateAlerts(stamped, key)
 
     scope.launch {
       repository.recordObservation(observation)
     }
   }
 
+  private val knownDeviceKeys = mutableSetOf<String>()
+
   private fun evaluateAlerts(input: ObservationInput, deviceKey: String) {
     if (alertNotifier == null || alertRules.isEmpty()) return
 
-    val sensorId = input.tpmsSensorId ?: input.adsbIcao ?: input.pocsagCapCode ?: input.p25UnitId ?: input.loraDevAddr ?: input.meshNodeId ?: input.wmbusSerialNumber ?: input.zwaveHomeId ?: input.sidewalkSmsn
+    val isNew = knownDeviceKeys.add(deviceKey)
+    val sensorId = input.tpmsSensorId ?: input.adsbIcao ?: input.pocsagCapCode ?: input.p25UnitId ?: input.loraDevAddr ?: input.meshNodeId ?: input.wmbusSerialNumber ?: input.zwaveHomeId ?: input.sidewalkSmsn ?: input.dmrRadioId ?: input.nxdnUnitId
     val alertObs = AlertObservation(
       deviceKey = deviceKey,
       displayName = input.name ?: input.tpmsModel ?: input.adsbCallsign,
       sensorId = sensorId,
       protocolType = input.protocolType,
-      source = input.source
+      source = input.source,
+      rssi = input.rssi,
+      isNewDevice = isNew
     )
 
     val matches = DeviceAlertMatcher.findMatches(alertRules, alertObs)
@@ -133,6 +152,10 @@ class ObservationRecorder(
     json.putIfNotNull("p25Wacn", input.p25Wacn)
     json.putIfNotNull("p25SystemId", input.p25SystemId)
     json.putIfNotNull("p25TalkGroupId", input.p25TalkGroupId)
+    json.putIfNotNull("p25EncryptionAlgorithm", input.p25EncryptionAlgorithm)
+    json.putIfNotNull("p25EncryptionKeyId", input.p25EncryptionKeyId)
+    json.putIfNotNull("p25Emergency", input.p25Emergency)
+    json.putIfNotNull("p25VoiceOrData", input.p25VoiceOrData)
 
     // LoRaWAN fields
     json.putIfNotNull("loraDevAddr", input.loraDevAddr)
@@ -140,6 +163,9 @@ class ObservationRecorder(
     json.putIfNotNull("loraCodingRate", input.loraCodingRate)
     json.putIfNotNull("loraPayloadSize", input.loraPayloadSize)
     json.putIfNotNull("loraCrcOk", input.loraCrcOk)
+    json.putIfNotNull("loraFPort", input.loraFPort)
+    json.putIfNotNull("loraFrameCounter", input.loraFrameCounter)
+    json.putIfNotNull("loraMType", input.loraMType)
 
     // Meshtastic fields
     json.putIfNotNull("meshNodeId", input.meshNodeId)
@@ -148,6 +174,8 @@ class ObservationRecorder(
     json.putIfNotNull("meshHopLimit", input.meshHopLimit)
     json.putIfNotNull("meshHopStart", input.meshHopStart)
     json.putIfNotNull("meshChannelHash", input.meshChannelHash)
+    json.putIfNotNull("meshPortNum", input.meshPortNum)
+    json.putIfNotNull("meshPayloadText", input.meshPayloadText)
 
     // Wireless M-Bus fields
     json.putIfNotNull("wmbusManufacturer", input.wmbusManufacturer)
@@ -159,12 +187,48 @@ class ObservationRecorder(
     json.putIfNotNull("zwaveHomeId", input.zwaveHomeId)
     json.putIfNotNull("zwaveNodeId", input.zwaveNodeId)
     json.putIfNotNull("zwaveFrameType", input.zwaveFrameType)
+    json.putIfNotNull("zwaveCommandClass", input.zwaveCommandClass)
+    json.putIfNotNull("zwaveNodeRole", input.zwaveNodeRole)
+    json.putIfNotNull("zwaveSecurityLevel", input.zwaveSecurityLevel)
 
     // Amazon Sidewalk fields
     json.putIfNotNull("sidewalkSmsn", input.sidewalkSmsn)
     json.putIfNotNull("sidewalkFrameType", input.sidewalkFrameType)
 
+    // DMR fields
+    json.putIfNotNull("dmrRadioId", input.dmrRadioId)
+    json.putIfNotNull("dmrColorCode", input.dmrColorCode)
+    json.putIfNotNull("dmrSlot", input.dmrSlot)
+    json.putIfNotNull("dmrTalkGroup", input.dmrTalkGroup)
+    json.putIfNotNull("dmrDataType", input.dmrDataType)
+    json.putIfNotNull("dmrEncrypted", input.dmrEncrypted)
+
+    // NXDN fields
+    json.putIfNotNull("nxdnUnitId", input.nxdnUnitId)
+    json.putIfNotNull("nxdnRan", input.nxdnRan)
+    json.putIfNotNull("nxdnTalkGroup", input.nxdnTalkGroup)
+    json.putIfNotNull("nxdnMessageType", input.nxdnMessageType)
+
     json.putIfNotNull("rawJson", input.rawJson)
+
+    // Receiver geolocation
+    json.putIfNotNull("receiverLat", input.receiverLat)
+    json.putIfNotNull("receiverLon", input.receiverLon)
+    json.putIfNotNull("receiverAltitude", input.receiverAltitude)
+    json.putIfNotNull("receiverAccuracy", input.receiverAccuracy)
+
+    // Compute range/bearing from receiver to ADS-B target if both positions available
+    if (input.receiverLat != null && input.receiverLon != null &&
+        input.adsbLat != null && input.adsbLon != null) {
+      val results = FloatArray(2)
+      android.location.Location.distanceBetween(
+        input.receiverLat, input.receiverLon,
+        input.adsbLat, input.adsbLon,
+        results
+      )
+      json.put("adsbRangeKm", results[0] / 1000.0)
+      json.put("adsbBearingDeg", results[1].toDouble())
+    }
 
     return json.toString(2)
   }

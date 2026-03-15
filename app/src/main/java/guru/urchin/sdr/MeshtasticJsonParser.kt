@@ -1,6 +1,7 @@
 package guru.urchin.sdr
 
 import android.util.Base64
+import android.util.Log
 import org.json.JSONObject
 
 /**
@@ -13,7 +14,10 @@ import org.json.JSONObject
  * - Byte 9: flags (hop limit in bits 0-2, hop start in bits 3-5)
  */
 object MeshtasticJsonParser {
+  private const val MAX_JSON_LENGTH = 10_000
+
   fun parse(jsonLine: String): SdrReading.Meshtastic? {
+    if (jsonLine.length > MAX_JSON_LENGTH) return null
     return try {
       val json = JSONObject(jsonLine)
       if (json.optString("type") != "meshtastic") return null
@@ -21,7 +25,8 @@ object MeshtasticJsonParser {
       val data = json.optStringOrNull("data") ?: return null
       val bytes = try {
         Base64.decode(data, Base64.DEFAULT)
-      } catch (_: Exception) {
+      } catch (e: Exception) {
+        Log.d("MeshtasticJsonParser", "Failed to decode base64 payload: ${e.message}")
         return null
       }
       if (bytes.size < 10) return null
@@ -51,6 +56,7 @@ object MeshtasticJsonParser {
   }
 
   private fun formatLeU32(bytes: ByteArray, offset: Int): String {
+    if (offset + 3 >= bytes.size) return "00000000"
     return String.format(
       "%02X%02X%02X%02X",
       bytes[offset + 3].toInt() and 0xFF,

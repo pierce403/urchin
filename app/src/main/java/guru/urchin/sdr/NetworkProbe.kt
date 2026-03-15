@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
 
@@ -22,8 +23,12 @@ object NetworkProbe {
                             socket.connect(InetSocketAddress(target.host, target.port), TIMEOUT_MS)
                         }
                         ProbeResult(target, reachable = true)
-                    } catch (e: Exception) {
+                    } catch (e: IOException) {
                         ProbeResult(target, reachable = false, errorMessage = e.message)
+                    } catch (e: SecurityException) {
+                        ProbeResult(target, reachable = false, errorMessage = e.message)
+                    } catch (e: IllegalArgumentException) {
+                        ProbeResult(target, reachable = false, errorMessage = "Invalid address: ${e.message}")
                     }
                 }
             }.awaitAll()

@@ -11,13 +11,20 @@ import org.json.JSONObject
  * ```
  */
 object WmBusJsonParser {
+  private const val MAX_JSON_LENGTH = 10_000
+  private val MANUFACTURER_RE = Regex("[A-Z]{3}")
+  private val SERIAL_RE = Regex("[0-9A-Fa-f]{8}")
+
   fun parse(jsonLine: String): SdrReading.WmBus? {
+    if (jsonLine.length > MAX_JSON_LENGTH) return null
     return try {
       val json = JSONObject(jsonLine)
       if (json.optString("type") != "wmbus") return null
 
-      val manufacturer = json.optStringOrNull("manufacturer") ?: return null
-      val serialNumber = json.optStringOrNull("serial") ?: return null
+      val manufacturer = json.optStringOrNull("manufacturer")
+        ?.takeIf { it.matches(MANUFACTURER_RE) } ?: return null
+      val serialNumber = json.optStringOrNull("serial")
+        ?.takeIf { it.matches(SERIAL_RE) } ?: return null
 
       SdrReading.WmBus(
         manufacturer = manufacturer,
