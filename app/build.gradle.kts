@@ -145,6 +145,11 @@ dependencies {
   implementation("androidx.room:room-ktx:$roomVersion")
   kapt("androidx.room:room-compiler:$roomVersion")
 
+  implementation("net.zetetic:sqlcipher-android:4.6.1@aar")
+  implementation("androidx.sqlite:sqlite:2.4.0")
+
+  implementation("androidx.biometric:biometric:1.1.0")
+
   testImplementation("junit:junit:4.13.2")
   testImplementation("org.json:json:20240303")
   androidTestImplementation("androidx.test:core:1.6.1")

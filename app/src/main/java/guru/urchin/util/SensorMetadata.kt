@@ -8,8 +8,8 @@ import guru.urchin.sdr.optStringOrNull
 import org.json.JSONObject
 
 /**
- * Deserialized form of `DeviceEntity.lastMetadataJson`. Holds fields for all four
- * protocols (TPMS, POCSAG, ADS-B, P25) in a flat structure. Parsed by [SensorMetadataParser].
+ * Deserialized form of `DeviceEntity.lastMetadataJson`. Holds fields for all
+ * protocols in a flat structure. Parsed by [SensorMetadataParser].
  */
 data class SensorMetadata(
   val source: String? = null,
@@ -41,6 +41,26 @@ data class SensorMetadata(
   val p25Wacn: String? = null,
   val p25SystemId: String? = null,
   val p25TalkGroupId: String? = null,
+  val loraDevAddr: String? = null,
+  val loraSpreadingFactor: String? = null,
+  val loraCodingRate: String? = null,
+  val loraPayloadSize: Int? = null,
+  val loraCrcOk: Boolean? = null,
+  val meshNodeId: String? = null,
+  val meshDestId: String? = null,
+  val meshPacketId: Int? = null,
+  val meshHopLimit: Int? = null,
+  val meshHopStart: Int? = null,
+  val meshChannelHash: String? = null,
+  val wmbusManufacturer: String? = null,
+  val wmbusSerialNumber: String? = null,
+  val wmbusMeterVersion: Int? = null,
+  val wmbusMeterType: String? = null,
+  val zwaveHomeId: String? = null,
+  val zwaveNodeId: Int? = null,
+  val zwaveFrameType: String? = null,
+  val sidewalkSmsn: String? = null,
+  val sidewalkFrameType: String? = null,
   val rssi: Int? = null,
   val rawJson: String? = null
 )
@@ -91,6 +111,26 @@ object SensorMetadataParser {
         p25Wacn = json.optStringOrNull("p25Wacn"),
         p25SystemId = json.optStringOrNull("p25SystemId"),
         p25TalkGroupId = json.optStringOrNull("p25TalkGroupId"),
+        loraDevAddr = json.optStringOrNull("loraDevAddr"),
+        loraSpreadingFactor = json.optStringOrNull("loraSpreadingFactor"),
+        loraCodingRate = json.optStringOrNull("loraCodingRate"),
+        loraPayloadSize = json.optIntOrNull("loraPayloadSize"),
+        loraCrcOk = json.optBooleanOrNull("loraCrcOk"),
+        meshNodeId = json.optStringOrNull("meshNodeId"),
+        meshDestId = json.optStringOrNull("meshDestId"),
+        meshPacketId = json.optIntOrNull("meshPacketId"),
+        meshHopLimit = json.optIntOrNull("meshHopLimit"),
+        meshHopStart = json.optIntOrNull("meshHopStart"),
+        meshChannelHash = json.optStringOrNull("meshChannelHash"),
+        wmbusManufacturer = json.optStringOrNull("wmbusManufacturer"),
+        wmbusSerialNumber = json.optStringOrNull("wmbusSerialNumber"),
+        wmbusMeterVersion = json.optIntOrNull("wmbusMeterVersion"),
+        wmbusMeterType = json.optStringOrNull("wmbusMeterType"),
+        zwaveHomeId = json.optStringOrNull("zwaveHomeId"),
+        zwaveNodeId = json.optIntOrNull("zwaveNodeId"),
+        zwaveFrameType = json.optStringOrNull("zwaveFrameType"),
+        sidewalkSmsn = json.optStringOrNull("sidewalkSmsn"),
+        sidewalkFrameType = json.optStringOrNull("sidewalkFrameType"),
         rssi = json.optIntOrNull("rssi"),
         rawJson = json.optStringOrNull("rawJson")
       )
@@ -110,8 +150,13 @@ object SensorPresentationBuilder {
 
     return when (protocol) {
       "pocsag" -> buildPocsag(device, metadata)
-      "adsb" -> buildAdsb(device, metadata)
+      "adsb", "uat" -> buildAdsb(device, metadata, protocol)
       "p25" -> buildP25(device, metadata)
+      "lorawan" -> buildLoRaWan(device, metadata)
+      "meshtastic" -> buildMeshtastic(device, metadata)
+      "wmbus" -> buildWmBus(device, metadata)
+      "zwave" -> buildZwave(device, metadata)
+      "sidewalk" -> buildSidewalk(device, metadata)
       else -> buildTpms(device, metadata)
     }
   }
@@ -188,7 +233,7 @@ object SensorPresentationBuilder {
     )
   }
 
-  private fun buildAdsb(device: DeviceEntity, metadata: SensorMetadata): SensorPresentation {
+  private fun buildAdsb(device: DeviceEntity, metadata: SensorMetadata, protocol: String = "adsb"): SensorPresentation {
     val callsignPart = metadata.adsbCallsign?.takeIf(String::isNotBlank)
     val preferredTitle = device.userCustomName?.takeIf(String::isNotBlank)
       ?: if (callsignPart != null) "Aircraft $callsignPart (${metadata.adsbIcao})"
@@ -223,7 +268,7 @@ object SensorPresentationBuilder {
       listSummary = listSummaryParts.joinToString(" • "),
       detailLines = detailLines,
       searchText = buildSearchText(preferredTitle, metadata),
-      protocolType = "adsb"
+      protocolType = protocol
     )
   }
 
@@ -261,6 +306,168 @@ object SensorPresentationBuilder {
     )
   }
 
+  private fun buildLoRaWan(device: DeviceEntity, metadata: SensorMetadata): SensorPresentation {
+    val sfPart = metadata.loraSpreadingFactor?.let { " $it" } ?: ""
+    val preferredTitle = device.userCustomName?.takeIf(String::isNotBlank)
+      ?: metadata.loraDevAddr?.let { "LoRa $it$sfPart" }
+      ?: device.displayName?.takeIf(String::isNotBlank)
+      ?: "Unknown LoRaWAN device"
+
+    val listSummaryParts = buildList {
+      metadata.loraDevAddr?.let { add("DevAddr: $it") }
+      metadata.loraSpreadingFactor?.let { add(it) }
+      metadata.loraPayloadSize?.let { add("${it}B") }
+    }
+
+    val detailLines = buildList {
+      metadata.loraDevAddr?.let { add("DevAddr: $it") }
+      metadata.loraSpreadingFactor?.let { add("Spreading Factor: $it") }
+      metadata.loraCodingRate?.let { add("Coding Rate: $it") }
+      metadata.loraPayloadSize?.let { add("Payload: $it bytes") }
+      metadata.loraCrcOk?.let { add("CRC: ${if (it) "OK" else "Failed"}") }
+      metadata.classificationLabel?.let { add("Classification: $it") }
+      metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      metadata.source?.let { add("Source: $it") }
+    }
+
+    return SensorPresentation(
+      title = preferredTitle,
+      listSummary = listSummaryParts.joinToString(" • "),
+      detailLines = detailLines,
+      searchText = buildSearchText(preferredTitle, metadata),
+      protocolType = "lorawan"
+    )
+  }
+
+  private fun buildMeshtastic(device: DeviceEntity, metadata: SensorMetadata): SensorPresentation {
+    val preferredTitle = device.userCustomName?.takeIf(String::isNotBlank)
+      ?: metadata.meshNodeId?.let { "Mesh $it" }
+      ?: device.displayName?.takeIf(String::isNotBlank)
+      ?: "Unknown Meshtastic node"
+
+    val listSummaryParts = buildList {
+      metadata.meshNodeId?.let { add("Node: $it") }
+      metadata.meshHopLimit?.let { remaining ->
+        metadata.meshHopStart?.let { start -> add("Hops: ${start - remaining} of $start") }
+      }
+      metadata.meshChannelHash?.let { add("Ch: $it") }
+    }
+
+    val detailLines = buildList {
+      metadata.meshNodeId?.let { add("Node ID: $it") }
+      metadata.meshDestId?.let { add("Destination: $it") }
+      metadata.meshPacketId?.let { add("Packet ID: $it") }
+      metadata.meshHopLimit?.let { add("Hop Limit: $it") }
+      metadata.meshHopStart?.let { add("Hop Start: $it") }
+      metadata.meshChannelHash?.let { add("Channel Hash: $it") }
+      metadata.classificationLabel?.let { add("Classification: $it") }
+      metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      metadata.source?.let { add("Source: $it") }
+    }
+
+    return SensorPresentation(
+      title = preferredTitle,
+      listSummary = listSummaryParts.joinToString(" • "),
+      detailLines = detailLines,
+      searchText = buildSearchText(preferredTitle, metadata),
+      protocolType = "meshtastic"
+    )
+  }
+
+  private fun buildWmBus(device: DeviceEntity, metadata: SensorMetadata): SensorPresentation {
+    val preferredTitle = device.userCustomName?.takeIf(String::isNotBlank)
+      ?: metadata.wmbusSerialNumber?.let { serial ->
+        val mfr = metadata.wmbusManufacturer?.let { "$it " } ?: ""
+        val type = metadata.wmbusMeterType?.let { " ($it)" } ?: ""
+        "${mfr}Meter $serial$type"
+      }
+      ?: device.displayName?.takeIf(String::isNotBlank)
+      ?: "Unknown meter"
+
+    val listSummaryParts = buildList {
+      metadata.wmbusManufacturer?.let { add(it) }
+      metadata.wmbusSerialNumber?.let { add("S/N: $it") }
+      metadata.wmbusMeterType?.let { add(it) }
+    }
+
+    val detailLines = buildList {
+      metadata.wmbusManufacturer?.let { add("Manufacturer: $it") }
+      metadata.wmbusSerialNumber?.let { add("Serial Number: $it") }
+      metadata.wmbusMeterVersion?.let { add("Version: $it") }
+      metadata.wmbusMeterType?.let { add("Meter Type: $it") }
+      metadata.classificationLabel?.let { add("Classification: $it") }
+      metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      metadata.source?.let { add("Source: $it") }
+    }
+
+    return SensorPresentation(
+      title = preferredTitle,
+      listSummary = listSummaryParts.joinToString(" • "),
+      detailLines = detailLines,
+      searchText = buildSearchText(preferredTitle, metadata),
+      protocolType = "wmbus"
+    )
+  }
+
+  private fun buildZwave(device: DeviceEntity, metadata: SensorMetadata): SensorPresentation {
+    val preferredTitle = device.userCustomName?.takeIf(String::isNotBlank)
+      ?: if (metadata.zwaveHomeId != null && metadata.zwaveNodeId != null)
+        "Z-Wave ${metadata.zwaveHomeId}:${metadata.zwaveNodeId}"
+      else device.displayName?.takeIf(String::isNotBlank)
+      ?: "Unknown Z-Wave device"
+
+    val listSummaryParts = buildList {
+      metadata.zwaveHomeId?.let { add("Home: $it") }
+      metadata.zwaveNodeId?.let { add("Node: $it") }
+      metadata.zwaveFrameType?.let { add(it) }
+    }
+
+    val detailLines = buildList {
+      metadata.zwaveHomeId?.let { add("Home ID: $it") }
+      metadata.zwaveNodeId?.let { add("Node ID: $it") }
+      metadata.zwaveFrameType?.let { add("Frame Type: $it") }
+      metadata.classificationLabel?.let { add("Classification: $it") }
+      metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      metadata.source?.let { add("Source: $it") }
+    }
+
+    return SensorPresentation(
+      title = preferredTitle,
+      listSummary = listSummaryParts.joinToString(" • "),
+      detailLines = detailLines,
+      searchText = buildSearchText(preferredTitle, metadata),
+      protocolType = "zwave"
+    )
+  }
+
+  private fun buildSidewalk(device: DeviceEntity, metadata: SensorMetadata): SensorPresentation {
+    val preferredTitle = device.userCustomName?.takeIf(String::isNotBlank)
+      ?: metadata.sidewalkSmsn?.let { "Sidewalk $it" }
+      ?: device.displayName?.takeIf(String::isNotBlank)
+      ?: "Unknown Sidewalk device"
+
+    val listSummaryParts = buildList {
+      metadata.sidewalkSmsn?.let { add("SMSN: $it") }
+      metadata.sidewalkFrameType?.let { add(it) }
+    }
+
+    val detailLines = buildList {
+      metadata.sidewalkSmsn?.let { add("SMSN: $it") }
+      metadata.sidewalkFrameType?.let { add("Frame Type: $it") }
+      metadata.classificationLabel?.let { add("Classification: $it") }
+      metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      metadata.source?.let { add("Source: $it") }
+    }
+
+    return SensorPresentation(
+      title = preferredTitle,
+      listSummary = listSummaryParts.joinToString(" • "),
+      detailLines = detailLines,
+      searchText = buildSearchText(preferredTitle, metadata),
+      protocolType = "sidewalk"
+    )
+  }
+
   private fun buildSearchText(title: String, metadata: SensorMetadata): String {
     return buildString {
       append(title)
@@ -278,6 +485,13 @@ object SensorPresentationBuilder {
         metadata.p25UnitId,
         metadata.p25TalkGroupId,
         metadata.p25Nac,
+        metadata.loraDevAddr,
+        metadata.meshNodeId,
+        metadata.meshChannelHash,
+        metadata.wmbusSerialNumber,
+        metadata.wmbusManufacturer,
+        metadata.zwaveHomeId,
+        metadata.sidewalkSmsn,
         metadata.rawJson
       ).forEach {
         append(it)

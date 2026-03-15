@@ -12,8 +12,20 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.coroutines.launch
+import android.content.ContentValues
+import android.content.Intent
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import guru.urchin.R
+import guru.urchin.analysis.EobBuilder
+import guru.urchin.export.BulkExporter
 import guru.urchin.databinding.ActivityMainBinding
+import guru.urchin.scan.ContinuousScanPreferences
+import guru.urchin.scan.ContinuousScanService
+import guru.urchin.sdr.NetworkProbe
+import guru.urchin.sdr.ProbeTarget
+import guru.urchin.sdr.ProbeResult
 import guru.urchin.sdr.SdrPreferences
 import guru.urchin.sdr.SdrRuntimeInspector
 import guru.urchin.sdr.SdrState
@@ -29,6 +41,7 @@ class MainActivity : AppCompatActivity() {
   private lateinit var adapter: DeviceAdapter
   private lateinit var appVersionInfo: AppVersionInfo
   private var compactCards = false
+  private var continuousScanningEnabled = false
   private var bindingPrefs = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,6 +63,7 @@ class MainActivity : AppCompatActivity() {
     WindowInsetsHelper.applyVerticalInsets(binding.filterDrawerContent)
     WindowInsetsHelper.requestApplyInsets(binding.root)
 
+    continuousScanningEnabled = ContinuousScanPreferences.isEnabled(this)
     compactCards = MainDisplayPreferences.isCompactDeviceCards(this)
     adapter = DeviceAdapter(
       onClick = { item ->
@@ -171,11 +185,33 @@ class MainActivity : AppCompatActivity() {
         true
       }
       R.id.menu_alerts -> {
-        startActivity(android.content.Intent(this, AlertsActivity::class.java))
+        startActivity(Intent(this, AlertsActivity::class.java))
+        true
+      }
+      R.id.menu_groups -> {
+        startActivity(Intent(this, AffinityGroupsActivity::class.java))
+        true
+      }
+      R.id.menu_continuous_scanning -> {
+        val enabled = !item.isChecked
+        item.isChecked = enabled
+        setContinuousScanningEnabled(enabled)
+        true
+      }
+      R.id.menu_timeline -> {
+        startActivity(Intent(this, TimelineActivity::class.java))
+        true
+      }
+      R.id.menu_eob -> {
+        showEobFormatDialog()
+        true
+      }
+      R.id.menu_export -> {
+        showExportFormatDialog()
         true
       }
       R.id.menu_diagnostics -> {
-        startActivity(android.content.Intent(this, DiagnosticsActivity::class.java))
+        startActivity(Intent(this, DiagnosticsActivity::class.java))
         true
       }
       R.id.menu_compact_cards -> {
@@ -233,6 +269,8 @@ class MainActivity : AppCompatActivity() {
       SdrPreferences.setGain(this, gain)
       restartIfScanning()
     }
+
+    binding.testConnectionButton.setOnClickListener { runConnectionTest() }
   }
 
   private fun bindProtocolToggles() {
@@ -241,15 +279,31 @@ class MainActivity : AppCompatActivity() {
     binding.protocolTpms.isChecked = "tpms" in enabled
     binding.protocolPocsag.isChecked = "pocsag" in enabled
     binding.protocolAdsb.isChecked = "adsb" in enabled
+    binding.protocolUat.isChecked = "uat" in enabled
     binding.protocolP25.isChecked = "p25" in enabled
+    binding.protocolLoRaWan.isChecked = "lorawan" in enabled
+    binding.protocolMeshtastic.isChecked = "meshtastic" in enabled
+    binding.protocolWmbus.isChecked = "wmbus" in enabled
+    binding.protocolZwave.isChecked = "zwave" in enabled
+    binding.protocolSidewalk.isChecked = "sidewalk" in enabled
     when (SdrPreferences.frequencyMhz(this)) {
       315 -> binding.freq315.isChecked = true
       else -> binding.freq433.isChecked = true
     }
+    updateUatPortVisibility()
     updateP25PortVisibility()
+    updateLoRaWanPortVisibility()
+    updateWmbusPortVisibility()
+    updateZwavePortVisibility()
+    updateSidewalkPortVisibility()
     updateTpmsFreqVisibility()
     updateHoppingWarning()
+    binding.uatPortInput.setText(SdrPreferences.uatNetworkPort(this).toString())
     binding.p25PortInput.setText(SdrPreferences.p25NetworkPort(this).toString())
+    binding.lorawanPortInput.setText(SdrPreferences.lorawanNetworkPort(this).toString())
+    binding.wmbusPortInput.setText(SdrPreferences.wmbusNetworkPort(this).toString())
+    binding.zwavePortInput.setText(SdrPreferences.zwaveNetworkPort(this).toString())
+    binding.sidewalkPortInput.setText(SdrPreferences.sidewalkNetworkPort(this).toString())
     bindingPrefs = false
 
     val protocolToggleListener = android.widget.CompoundButton.OnCheckedChangeListener { _, _ ->
@@ -258,7 +312,13 @@ class MainActivity : AppCompatActivity() {
       if (binding.protocolTpms.isChecked) protocols.add("tpms")
       if (binding.protocolPocsag.isChecked) protocols.add("pocsag")
       if (binding.protocolAdsb.isChecked) protocols.add("adsb")
+      if (binding.protocolUat.isChecked) protocols.add("uat")
       if (binding.protocolP25.isChecked) protocols.add("p25")
+      if (binding.protocolLoRaWan.isChecked) protocols.add("lorawan")
+      if (binding.protocolMeshtastic.isChecked) protocols.add("meshtastic")
+      if (binding.protocolWmbus.isChecked) protocols.add("wmbus")
+      if (binding.protocolZwave.isChecked) protocols.add("zwave")
+      if (binding.protocolSidewalk.isChecked) protocols.add("sidewalk")
       if (protocols.isEmpty()) {
         protocols.add("tpms")
         bindingPrefs = true
@@ -267,7 +327,12 @@ class MainActivity : AppCompatActivity() {
         android.widget.Toast.makeText(this, getString(R.string.protocol_required), android.widget.Toast.LENGTH_SHORT).show()
       }
       SdrPreferences.setEnabledProtocols(this, protocols)
+      updateUatPortVisibility()
       updateP25PortVisibility()
+      updateLoRaWanPortVisibility()
+      updateWmbusPortVisibility()
+      updateZwavePortVisibility()
+      updateSidewalkPortVisibility()
       updateTpmsFreqVisibility()
       updateHoppingWarning()
       restartIfScanning()
@@ -275,7 +340,13 @@ class MainActivity : AppCompatActivity() {
     binding.protocolTpms.setOnCheckedChangeListener(protocolToggleListener)
     binding.protocolPocsag.setOnCheckedChangeListener(protocolToggleListener)
     binding.protocolAdsb.setOnCheckedChangeListener(protocolToggleListener)
+    binding.protocolUat.setOnCheckedChangeListener(protocolToggleListener)
     binding.protocolP25.setOnCheckedChangeListener(protocolToggleListener)
+    binding.protocolLoRaWan.setOnCheckedChangeListener(protocolToggleListener)
+    binding.protocolMeshtastic.setOnCheckedChangeListener(protocolToggleListener)
+    binding.protocolWmbus.setOnCheckedChangeListener(protocolToggleListener)
+    binding.protocolZwave.setOnCheckedChangeListener(protocolToggleListener)
+    binding.protocolSidewalk.setOnCheckedChangeListener(protocolToggleListener)
 
     binding.tpmsFreqGroup.setOnCheckedChangeListener { _, checkedId ->
       if (bindingPrefs) return@setOnCheckedChangeListener
@@ -284,18 +355,83 @@ class MainActivity : AppCompatActivity() {
       restartIfScanning()
     }
 
+    binding.uatPortInput.doAfterTextChanged { text ->
+      if (bindingPrefs) return@doAfterTextChanged
+      val port = text?.toString()?.toIntOrNull() ?: return@doAfterTextChanged
+      SdrPreferences.setUatNetworkPort(this, port)
+      restartIfScanning(source = SdrPreferences.SdrSource.NETWORK)
+    }
+
     binding.p25PortInput.doAfterTextChanged { text ->
       if (bindingPrefs) return@doAfterTextChanged
       val port = text?.toString()?.toIntOrNull() ?: return@doAfterTextChanged
       SdrPreferences.setP25NetworkPort(this, port)
       restartIfScanning(source = SdrPreferences.SdrSource.NETWORK)
     }
+
+    binding.lorawanPortInput.doAfterTextChanged { text ->
+      if (bindingPrefs) return@doAfterTextChanged
+      val port = text?.toString()?.toIntOrNull() ?: return@doAfterTextChanged
+      SdrPreferences.setLorawanNetworkPort(this, port)
+      restartIfScanning(source = SdrPreferences.SdrSource.NETWORK)
+    }
+
+    binding.wmbusPortInput.doAfterTextChanged { text ->
+      if (bindingPrefs) return@doAfterTextChanged
+      val port = text?.toString()?.toIntOrNull() ?: return@doAfterTextChanged
+      SdrPreferences.setWmbusNetworkPort(this, port)
+      restartIfScanning(source = SdrPreferences.SdrSource.NETWORK)
+    }
+
+    binding.zwavePortInput.doAfterTextChanged { text ->
+      if (bindingPrefs) return@doAfterTextChanged
+      val port = text?.toString()?.toIntOrNull() ?: return@doAfterTextChanged
+      SdrPreferences.setZwaveNetworkPort(this, port)
+      restartIfScanning(source = SdrPreferences.SdrSource.NETWORK)
+    }
+
+    binding.sidewalkPortInput.doAfterTextChanged { text ->
+      if (bindingPrefs) return@doAfterTextChanged
+      val port = text?.toString()?.toIntOrNull() ?: return@doAfterTextChanged
+      SdrPreferences.setSidewalkNetworkPort(this, port)
+      restartIfScanning(source = SdrPreferences.SdrSource.NETWORK)
+    }
+  }
+
+  private fun updateUatPortVisibility() {
+    val uatChecked = binding.protocolUat.isChecked
+    val isNetwork = SdrPreferences.source(this) == SdrPreferences.SdrSource.NETWORK
+    binding.uatPortLayout.isVisible = uatChecked && isNetwork
   }
 
   private fun updateP25PortVisibility() {
     val p25Checked = binding.protocolP25.isChecked
     val isNetwork = SdrPreferences.source(this) == SdrPreferences.SdrSource.NETWORK
     binding.p25PortLayout.isVisible = p25Checked && isNetwork
+  }
+
+  private fun updateLoRaWanPortVisibility() {
+    val lorawanChecked = binding.protocolLoRaWan.isChecked
+    val isNetwork = SdrPreferences.source(this) == SdrPreferences.SdrSource.NETWORK
+    binding.lorawanPortLayout.isVisible = lorawanChecked && isNetwork
+  }
+
+  private fun updateWmbusPortVisibility() {
+    val wmbusChecked = binding.protocolWmbus.isChecked
+    val isNetwork = SdrPreferences.source(this) == SdrPreferences.SdrSource.NETWORK
+    binding.wmbusPortLayout.isVisible = wmbusChecked && isNetwork
+  }
+
+  private fun updateZwavePortVisibility() {
+    val zwaveChecked = binding.protocolZwave.isChecked
+    val isNetwork = SdrPreferences.source(this) == SdrPreferences.SdrSource.NETWORK
+    binding.zwavePortLayout.isVisible = zwaveChecked && isNetwork
+  }
+
+  private fun updateSidewalkPortVisibility() {
+    val sidewalkChecked = binding.protocolSidewalk.isChecked
+    val isNetwork = SdrPreferences.source(this) == SdrPreferences.SdrSource.NETWORK
+    binding.sidewalkPortLayout.isVisible = sidewalkChecked && isNetwork
   }
 
   private fun updateTpmsFreqVisibility() {
@@ -310,6 +446,7 @@ class MainActivity : AppCompatActivity() {
     if (binding.protocolTpms.isChecked) frequencyCount++
     if (binding.protocolPocsag.isChecked) frequencyCount++
     if (binding.protocolAdsb.isChecked) frequencyCount++
+    if (binding.protocolUat.isChecked) frequencyCount++
     // P25 uses its own dongle/binary, excluded from frequency count
     binding.hoppingWarning.isVisible = isUsb && frequencyCount > 1
   }
@@ -320,7 +457,13 @@ class MainActivity : AppCompatActivity() {
         R.id.chipTpms in checkedIds -> "tpms"
         R.id.chipPocsag in checkedIds -> "pocsag"
         R.id.chipAdsb in checkedIds -> "adsb"
+        R.id.chipUat in checkedIds -> "uat"
         R.id.chipP25 in checkedIds -> "p25"
+        R.id.chipLoRaWan in checkedIds -> "lorawan"
+        R.id.chipMeshtastic in checkedIds -> "meshtastic"
+        R.id.chipWmbus in checkedIds -> "wmbus"
+        R.id.chipZwave in checkedIds -> "zwave"
+        R.id.chipSidewalk in checkedIds -> "sidewalk"
         else -> null
       }
       viewModel.setProtocolFilter(protocol)
@@ -330,10 +473,43 @@ class MainActivity : AppCompatActivity() {
   private fun updateSourceVisibility(source: SdrPreferences.SdrSource) {
     binding.networkConfigGroup.isVisible = source == SdrPreferences.SdrSource.NETWORK
     binding.usbHardwareGroup.isVisible = source == SdrPreferences.SdrSource.USB
+    updateUatPortVisibility()
     updateP25PortVisibility()
+    updateLoRaWanPortVisibility()
+    updateWmbusPortVisibility()
+    updateZwavePortVisibility()
+    updateSidewalkPortVisibility()
     updateTpmsFreqVisibility()
     updateHoppingWarning()
     updateUsbSummary()
+    val isNetwork = source == SdrPreferences.SdrSource.NETWORK
+    binding.protocolLoRaWan.isEnabled = isNetwork
+    binding.protocolMeshtastic.isEnabled = isNetwork
+    binding.protocolWmbus.isEnabled = isNetwork
+    binding.protocolZwave.isEnabled = isNetwork
+    binding.protocolSidewalk.isEnabled = isNetwork
+    binding.rakHatLabel.isEnabled = isNetwork
+
+    // Auto-uncheck RAK HAT protocols when switching to USB (they're network-only)
+    if (!isNetwork) {
+      val rakHatCheckboxes = listOf(
+        binding.protocolLoRaWan,
+        binding.protocolMeshtastic,
+        binding.protocolWmbus,
+        binding.protocolZwave,
+        binding.protocolSidewalk
+      )
+      val anyWasChecked = rakHatCheckboxes.any { it.isChecked }
+      if (anyWasChecked) {
+        bindingPrefs = true
+        rakHatCheckboxes.forEach { it.isChecked = false }
+        bindingPrefs = false
+        val protocols = SdrPreferences.enabledProtocols(this).toMutableSet()
+        protocols.removeAll(setOf("lorawan", "meshtastic", "wmbus", "zwave", "sidewalk"))
+        if (protocols.isEmpty()) protocols.add("tpms")
+        SdrPreferences.setEnabledProtocols(this, protocols)
+      }
+    }
   }
 
   private fun restartIfScanning(source: SdrPreferences.SdrSource? = null) {
@@ -385,6 +561,7 @@ class MainActivity : AppCompatActivity() {
 
   private fun syncMenuState(menu: android.view.Menu?) {
     menu ?: return
+    menu.findItem(R.id.menu_continuous_scanning)?.isChecked = continuousScanningEnabled
     menu.findItem(R.id.menu_compact_cards)?.isChecked = compactCards
     menu.findItem(R.id.menu_version)?.title = appVersionInfo.menuLabel
     val scanToggle = menu.findItem(R.id.menu_scan_toggle)
@@ -401,6 +578,119 @@ class MainActivity : AppCompatActivity() {
     if (persist) {
       MainDisplayPreferences.setCompactDeviceCards(this, enabled)
     }
+  }
+
+  private fun setContinuousScanningEnabled(enabled: Boolean) {
+    continuousScanningEnabled = enabled
+    if (enabled) {
+      ContinuousScanService.start(this)
+    } else {
+      ContinuousScanService.stop(this)
+    }
+  }
+
+  private fun runConnectionTest() {
+    val host = binding.networkHostInput.text?.toString()?.trim().orEmpty()
+    if (host.isEmpty()) {
+      android.widget.Toast.makeText(this, getString(R.string.network_host), android.widget.Toast.LENGTH_SHORT).show()
+      return
+    }
+    if (!host.matches(Regex("[a-zA-Z0-9._:-]+"))) {
+      android.widget.Toast.makeText(this, "Invalid host format", android.widget.Toast.LENGTH_SHORT).show()
+      return
+    }
+
+    val targets = mutableListOf<ProbeTarget>()
+    if (binding.protocolTpms.isChecked || binding.protocolPocsag.isChecked) {
+      val port = binding.networkPortInput.text?.toString()?.toIntOrNull()
+        ?: SdrPreferences.networkPort(this)
+      val label = buildString {
+        if (binding.protocolTpms.isChecked) append("TPMS")
+        if (binding.protocolPocsag.isChecked) {
+          if (isNotEmpty()) append("/")
+          append("POCSAG")
+        }
+      }
+      targets.add(ProbeTarget(label, host, port))
+    }
+    if (binding.protocolAdsb.isChecked) {
+      targets.add(ProbeTarget("ADS-B", host, SdrPreferences.adsbNetworkPort(this)))
+    }
+    if (binding.protocolUat.isChecked) {
+      val port = binding.uatPortInput.text?.toString()?.toIntOrNull()
+        ?: SdrPreferences.uatNetworkPort(this)
+      targets.add(ProbeTarget("UAT", host, port))
+    }
+    if (binding.protocolP25.isChecked) {
+      val port = binding.p25PortInput.text?.toString()?.toIntOrNull()
+        ?: SdrPreferences.p25NetworkPort(this)
+      targets.add(ProbeTarget("P25", host, port))
+    }
+    if (binding.protocolLoRaWan.isChecked || binding.protocolMeshtastic.isChecked) {
+      val port = binding.lorawanPortInput.text?.toString()?.toIntOrNull()
+        ?: SdrPreferences.lorawanNetworkPort(this)
+      val label = buildString {
+        if (binding.protocolLoRaWan.isChecked) append("LoRaWAN")
+        if (binding.protocolMeshtastic.isChecked) {
+          if (isNotEmpty()) append("/")
+          append("Meshtastic")
+        }
+      }
+      targets.add(ProbeTarget(label, host, port))
+    }
+    if (binding.protocolWmbus.isChecked) {
+      val port = binding.wmbusPortInput.text?.toString()?.toIntOrNull()
+        ?: SdrPreferences.wmbusNetworkPort(this)
+      targets.add(ProbeTarget("wM-Bus", host, port))
+    }
+    if (binding.protocolZwave.isChecked) {
+      val port = binding.zwavePortInput.text?.toString()?.toIntOrNull()
+        ?: SdrPreferences.zwaveNetworkPort(this)
+      targets.add(ProbeTarget("Z-Wave", host, port))
+    }
+    if (binding.protocolSidewalk.isChecked) {
+      val port = binding.sidewalkPortInput.text?.toString()?.toIntOrNull()
+        ?: SdrPreferences.sidewalkNetworkPort(this)
+      targets.add(ProbeTarget("Sidewalk", host, port))
+    }
+
+    if (targets.isEmpty()) {
+      android.widget.Toast.makeText(this, getString(R.string.no_protocols_enabled), android.widget.Toast.LENGTH_SHORT).show()
+      return
+    }
+
+    binding.testConnectionButton.isEnabled = false
+    binding.testConnectionButton.text = getString(R.string.testing_connection)
+
+    lifecycleScope.launch {
+      try {
+        val results = NetworkProbe.probeAll(targets)
+        results.forEach { result ->
+          val status = if (result.reachable) "reachable" else "unreachable: ${result.errorMessage}"
+          guru.urchin.util.DebugLog.log("Connection test: ${result.target.label} ${result.target.host}:${result.target.port} $status")
+        }
+        showConnectionResults(results)
+      } catch (e: Exception) {
+        guru.urchin.util.DebugLog.log("Connection test failed: ${e.message}")
+        android.widget.Toast.makeText(this@MainActivity, "Test failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+      } finally {
+        binding.testConnectionButton.isEnabled = true
+        binding.testConnectionButton.text = getString(R.string.test_connection)
+      }
+    }
+  }
+
+  private fun showConnectionResults(results: List<ProbeResult>) {
+    val message = results.joinToString("\n\n") { result ->
+      val icon = if (result.reachable) "\u2705" else "\u274C"
+      val status = if (result.reachable) "Reachable" else result.errorMessage ?: "Connection failed"
+      "$icon ${result.target.label} (${result.target.host}:${result.target.port})\n     $status"
+    }
+    androidx.appcompat.app.AlertDialog.Builder(this)
+      .setTitle(getString(R.string.connection_test_title))
+      .setMessage(message)
+      .setPositiveButton(android.R.string.ok, null)
+      .show()
   }
 
   private fun updateSdrState(state: SdrState) {
@@ -475,5 +765,103 @@ class MainActivity : AppCompatActivity() {
     val clip = android.content.ClipData.newPlainText("Sensor Info", clipText)
     clipboard.setPrimaryClip(clip)
     android.widget.Toast.makeText(this, getString(R.string.copied_to_clipboard_simple), android.widget.Toast.LENGTH_SHORT).show()
+  }
+
+  private fun showExportFormatDialog() {
+    val formats = arrayOf("CSV", "KML (Google Earth)", "GeoJSON")
+    androidx.appcompat.app.AlertDialog.Builder(this)
+      .setTitle(getString(R.string.export_format_title))
+      .setItems(formats) { _, which ->
+        lifecycleScope.launch {
+          runBulkExport(which)
+        }
+      }
+      .show()
+  }
+
+  private suspend fun runBulkExport(formatIndex: Int) {
+    val app = application as guru.urchin.UrchinApp
+    val devices = app.database.deviceDao().getDevices()
+    val sightings = app.database.sightingDao().getSightingsAfter(0)
+    if (devices.isEmpty()) {
+      android.widget.Toast.makeText(this, getString(R.string.export_no_data), android.widget.Toast.LENGTH_SHORT).show()
+      return
+    }
+    val result = when (formatIndex) {
+      0 -> BulkExporter.exportCsv(devices, sightings)
+      1 -> BulkExporter.exportKml(devices, sightings)
+      2 -> BulkExporter.exportGeoJson(devices, sightings)
+      else -> return
+    }
+    saveExportToDownloads(result)
+  }
+
+  private fun showEobFormatDialog() {
+    val formats = arrayOf("JSON", "Text (plain)")
+    androidx.appcompat.app.AlertDialog.Builder(this)
+      .setTitle(getString(R.string.eob_report_title))
+      .setItems(formats) { _, which ->
+        lifecycleScope.launch {
+          runEobReport(which)
+        }
+      }
+      .show()
+  }
+
+  private suspend fun runEobReport(formatIndex: Int) {
+    val app = application as guru.urchin.UrchinApp
+    val devices = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+      app.database.deviceDao().getDevices()
+    }
+    val sightings = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+      app.database.sightingDao().getSightingsAfter(0)
+    }
+    val correlations = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+      app.database.correlationDao().getAllCorrelations()
+    }
+    if (devices.isEmpty()) {
+      android.widget.Toast.makeText(this, getString(R.string.export_no_data), android.widget.Toast.LENGTH_SHORT).show()
+      return
+    }
+    val result = when (formatIndex) {
+      0 -> BulkExporter.ExportResult(
+        "urchin-eob.json",
+        EobBuilder.buildReport(devices, sightings, correlations),
+        "application/json"
+      )
+      1 -> BulkExporter.ExportResult(
+        "urchin-eob.txt",
+        EobBuilder.buildTextReport(devices, sightings, correlations),
+        "text/plain"
+      )
+      else -> return
+    }
+    saveExportToDownloads(result)
+  }
+
+  private fun saveExportToDownloads(result: BulkExporter.ExportResult) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      val values = ContentValues().apply {
+        put(MediaStore.Downloads.DISPLAY_NAME, result.fileName)
+        put(MediaStore.Downloads.MIME_TYPE, result.mimeType)
+        put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+        put(MediaStore.Downloads.IS_PENDING, 1)
+      }
+      val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+      if (uri != null) {
+        contentResolver.openOutputStream(uri)?.use { it.write(result.content.toByteArray()) }
+        values.clear()
+        values.put(MediaStore.Downloads.IS_PENDING, 0)
+        contentResolver.update(uri, values, null, null)
+        android.widget.Toast.makeText(this, getString(R.string.export_saved, result.fileName), android.widget.Toast.LENGTH_SHORT).show()
+      } else {
+        android.widget.Toast.makeText(this, getString(R.string.device_json_save_failed), android.widget.Toast.LENGTH_SHORT).show()
+      }
+    } else {
+      val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+      val file = java.io.File(dir, result.fileName)
+      file.writeText(result.content)
+      android.widget.Toast.makeText(this, getString(R.string.export_saved, result.fileName), android.widget.Toast.LENGTH_SHORT).show()
+    }
   }
 }

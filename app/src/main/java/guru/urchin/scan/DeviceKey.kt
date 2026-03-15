@@ -21,6 +21,20 @@ object DeviceKey {
         "pocsag:${input.pocsagCapCode}:${input.pocsagFunctionCode ?: 0}"
       !input.p25UnitId.isNullOrBlank() ->
         "p25:${input.p25Wacn.orEmpty()}:${input.p25SystemId.orEmpty()}:${input.p25UnitId}"
+      !input.loraDevAddr.isNullOrBlank() ->
+        "lorawan:${input.loraDevAddr.uppercase()}"
+      !input.meshNodeId.isNullOrBlank() ->
+        "meshtastic:${input.meshNodeId.uppercase()}"
+      !input.wmbusSerialNumber.isNullOrBlank() ->
+        "wmbus:${input.wmbusManufacturer.orEmpty()}:${input.wmbusSerialNumber}"
+      !input.zwaveHomeId.isNullOrBlank() ->
+        "zwave:${input.zwaveHomeId.uppercase()}:${input.zwaveNodeId ?: 0}"
+      !input.sidewalkSmsn.isNullOrBlank() ->
+        "sidewalk:${input.sidewalkSmsn.uppercase()}"
+      !input.dmrRadioId.isNullOrBlank() ->
+        "dmr:${input.dmrRadioId}"
+      !input.nxdnUnitId.isNullOrBlank() ->
+        "nxdn:${input.nxdnUnitId}"
       !input.tpmsSensorId.isNullOrBlank() ->
         "tpms:${input.tpmsModel.orEmpty().lowercase()}:${input.tpmsSensorId.uppercase()}"
       !input.normalizedAddress.isNullOrBlank() -> "a:${input.normalizedAddress}"

@@ -76,11 +76,53 @@
           android:text="@string/protocol_filter_adsb" />
 
         <com.google.android.material.chip.Chip
+          android:id="@+id/chipUat"
+          style="@style/Widget.MaterialComponents.Chip.Filter"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/protocol_filter_uat" />
+
+        <com.google.android.material.chip.Chip
           android:id="@+id/chipP25"
           style="@style/Widget.MaterialComponents.Chip.Filter"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
           android:text="@string/protocol_filter_p25" />
+
+        <com.google.android.material.chip.Chip
+          android:id="@+id/chipLoRaWan"
+          style="@style/Widget.MaterialComponents.Chip.Filter"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/protocol_filter_lorawan" />
+
+        <com.google.android.material.chip.Chip
+          android:id="@+id/chipMeshtastic"
+          style="@style/Widget.MaterialComponents.Chip.Filter"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/protocol_filter_meshtastic" />
+
+        <com.google.android.material.chip.Chip
+          android:id="@+id/chipWmbus"
+          style="@style/Widget.MaterialComponents.Chip.Filter"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/protocol_filter_wmbus" />
+
+        <com.google.android.material.chip.Chip
+          android:id="@+id/chipZwave"
+          style="@style/Widget.MaterialComponents.Chip.Filter"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/protocol_filter_zwave" />
+
+        <com.google.android.material.chip.Chip
+          android:id="@+id/chipSidewalk"
+          style="@style/Widget.MaterialComponents.Chip.Filter"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/protocol_filter_sidewalk" />
 
       </com.google.android.material.chip.ChipGroup>
     </HorizontalScrollView>
@@ -240,6 +282,14 @@
             android:inputType="number"
             android:textColor="@color/urchin_on_surface" />
         </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.button.MaterialButton
+          android:id="@+id/testConnectionButton"
+          style="@style/Widget.Material3.Button.OutlinedButton"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="12dp"
+          android:text="@string/test_connection" />
       </LinearLayout>
 
       <TextView
@@ -300,6 +350,30 @@
         android:textColor="@color/urchin_on_surface" />
 
       <CheckBox
+        android:id="@+id/protocolUat"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/protocol_uat"
+        android:textColor="@color/urchin_on_surface" />
+
+      <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/uatPortLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:visibility="gone">
+
+        <com.google.android.material.textfield.TextInputEditText
+          android:id="@+id/uatPortInput"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:hint="@string/uat_network_port"
+          android:inputType="number"
+          android:textColor="@color/urchin_on_surface" />
+      </com.google.android.material.textfield.TextInputLayout>
+
+      <CheckBox
         android:id="@+id/protocolP25"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -319,6 +393,119 @@
           android:layout_width="match_parent"
           android:layout_height="wrap_content"
           android:hint="@string/p25_network_port"
+          android:inputType="number"
+          android:textColor="@color/urchin_on_surface" />
+      </com.google.android.material.textfield.TextInputLayout>
+
+      <TextView
+        android:id="@+id/rakHatLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="@string/protocols_rak_hat_label"
+        android:textColor="@color/urchin_secondary"
+        android:textSize="12sp" />
+
+      <CheckBox
+        android:id="@+id/protocolLoRaWan"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/protocol_lorawan"
+        android:textColor="@color/urchin_on_surface" />
+
+      <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/lorawanPortLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:visibility="gone">
+
+        <com.google.android.material.textfield.TextInputEditText
+          android:id="@+id/lorawanPortInput"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:hint="@string/lorawan_network_port"
+          android:inputType="number"
+          android:textColor="@color/urchin_on_surface" />
+      </com.google.android.material.textfield.TextInputLayout>
+
+      <CheckBox
+        android:id="@+id/protocolMeshtastic"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/protocol_meshtastic"
+        android:textColor="@color/urchin_on_surface" />
+
+      <CheckBox
+        android:id="@+id/protocolWmbus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/protocol_wmbus"
+        android:textColor="@color/urchin_on_surface" />
+
+      <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/wmbusPortLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:visibility="gone">
+
+        <com.google.android.material.textfield.TextInputEditText
+          android:id="@+id/wmbusPortInput"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:hint="@string/wmbus_network_port"
+          android:inputType="number"
+          android:textColor="@color/urchin_on_surface" />
+      </com.google.android.material.textfield.TextInputLayout>
+
+      <CheckBox
+        android:id="@+id/protocolZwave"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/protocol_zwave"
+        android:textColor="@color/urchin_on_surface" />
+
+      <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/zwavePortLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:visibility="gone">
+
+        <com.google.android.material.textfield.TextInputEditText
+          android:id="@+id/zwavePortInput"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:hint="@string/zwave_network_port"
+          android:inputType="number"
+          android:textColor="@color/urchin_on_surface" />
+      </com.google.android.material.textfield.TextInputLayout>
+
+      <CheckBox
+        android:id="@+id/protocolSidewalk"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/protocol_sidewalk"
+        android:textColor="@color/urchin_on_surface" />
+
+      <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/sidewalkPortLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:visibility="gone">
+
+        <com.google.android.material.textfield.TextInputEditText
+          android:id="@+id/sidewalkPortInput"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:hint="@string/sidewalk_network_port"
           android:inputType="number"
           android:textColor="@color/urchin_on_surface" />
       </com.google.android.material.textfield.TextInputLayout>

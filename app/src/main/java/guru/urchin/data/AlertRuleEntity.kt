@@ -12,5 +12,7 @@ data class AlertRuleEntity(
   val emoji: String,
   val soundPreset: String,
   val enabled: Boolean,
-  val createdAt: Long
+  val createdAt: Long,
+  val rssiThreshold: Int? = null,
+  val absenceMinutes: Int? = null
 )

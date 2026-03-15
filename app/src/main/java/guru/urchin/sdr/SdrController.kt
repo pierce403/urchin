@@ -40,8 +40,14 @@ class SdrController(
   private val channels = mutableListOf<SdrChannel>()
   private var frequencyHopper: FrequencyHopper? = null
   private var adsbBridge: TcpStreamBridge<SdrReading.Adsb>? = null
+  private var uatBridge: TcpStreamBridge<SdrReading.Adsb>? = null
   private var p25Bridge: TcpStreamBridge<SdrReading.P25>? = null
   private var p25Process: P25Process? = null
+  private var lorawanBridge: TcpStreamBridge<SdrReading.LoRaWan>? = null
+  private var meshtasticBridge: TcpStreamBridge<SdrReading.Meshtastic>? = null
+  private var wmbusBridge: TcpStreamBridge<SdrReading.WmBus>? = null
+  private var zwaveBridge: TcpStreamBridge<SdrReading.Zwave>? = null
+  private var sidewalkBridge: TcpStreamBridge<SdrReading.Sidewalk>? = null
 
   @MainThread
   fun startSdr() {
@@ -80,12 +86,24 @@ class SdrController(
     frequencyHopper = null
     adsbBridge?.disconnect()
     adsbBridge = null
+    uatBridge?.disconnect()
+    uatBridge = null
     adsbProcess?.stop()
     adsbProcess = null
     p25Bridge?.disconnect()
     p25Bridge = null
     p25Process?.stop()
     p25Process = null
+    lorawanBridge?.disconnect()
+    lorawanBridge = null
+    meshtasticBridge?.disconnect()
+    meshtasticBridge = null
+    wmbusBridge?.disconnect()
+    wmbusBridge = null
+    zwaveBridge?.disconnect()
+    zwaveBridge = null
+    sidewalkBridge?.disconnect()
+    sidewalkBridge = null
     _sdrState.value = SdrState.Idle
     DebugLog.log("SDR scanning stopped")
   }
@@ -163,14 +181,44 @@ class SdrController(
       )
     }
 
-    // ADS-B bridge on separate port
+    // ADS-B 1090 MHz bridge on separate port
     if ("adsb" in enabledProtocols) {
       startAdsbNetworkBridge(host)
+    }
+
+    // UAT 978 MHz bridge on separate port
+    if ("uat" in enabledProtocols) {
+      startUatNetworkBridge(host)
     }
 
     // P25 bridge on separate port (OP25 metadata)
     if ("p25" in enabledProtocols) {
       startP25NetworkBridge(host)
+    }
+
+    // LoRaWAN bridge (network-only, SPI concentrator on Pi HAT)
+    if ("lorawan" in enabledProtocols) {
+      startLoRaWanNetworkBridge(host)
+    }
+
+    // Meshtastic shares port with LoRaWAN (same lora_json_bridge, different type field)
+    if ("meshtastic" in enabledProtocols) {
+      startMeshtasticNetworkBridge(host)
+    }
+
+    // Wireless M-Bus (RAK HAT FSK channel, EU868 only)
+    if ("wmbus" in enabledProtocols) {
+      startWmBusNetworkBridge(host)
+    }
+
+    // Z-Wave (RAK HAT FSK channel, US only)
+    if ("zwave" in enabledProtocols) {
+      startZwaveNetworkBridge(host)
+    }
+
+    // Amazon Sidewalk (RAK HAT FSK channel)
+    if ("sidewalk" in enabledProtocols) {
+      startSidewalkNetworkBridge(host)
     }
   }
 
@@ -192,6 +240,25 @@ class SdrController(
     )
   }
 
+  private fun startUatNetworkBridge(host: String) {
+    val uatPort = SdrPreferences.uatNetworkPort(context)
+    DebugLog.log("UAT starting network bridge to $host:$uatPort")
+    val bridge = TcpStreamBridge<SdrReading.Adsb>("UAT network bridge") { line ->
+      AdsbJsonParser.parse(line, frequencyMhz = 978.0)
+    }
+    uatBridge = bridge
+    bridge.connect(
+      scope = scope,
+      host = host,
+      port = uatPort,
+      onReading = { reading -> handleSdrReading(reading) },
+      onError = { message ->
+        DebugLog.log("UAT network bridge error: $message")
+        ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = "UAT: $message") }
+      }
+    )
+  }
+
   private fun startP25NetworkBridge(host: String) {
     val p25Port = SdrPreferences.p25NetworkPort(context)
     DebugLog.log("P25 starting network bridge to $host:$p25Port")
@@ -205,6 +272,96 @@ class SdrController(
       onError = { message ->
         DebugLog.log("P25 network bridge error: $message")
         ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = "P25: $message") }
+      }
+    )
+  }
+
+  private fun startMeshtasticNetworkBridge(host: String) {
+    val port = SdrPreferences.lorawanNetworkPort(context) // shares port with LoRaWAN
+    DebugLog.log("Meshtastic starting network bridge to $host:$port")
+    meshtasticBridge?.disconnect()
+    val bridge = TcpStreamBridge<SdrReading.Meshtastic>("Meshtastic network bridge", MeshtasticJsonParser::parse)
+    meshtasticBridge = bridge
+    bridge.connect(
+      scope = scope,
+      host = host,
+      port = port,
+      onReading = { reading -> handleSdrReading(reading) },
+      onError = { message ->
+        DebugLog.log("Meshtastic network bridge error: $message")
+        ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = "Meshtastic: $message") }
+      }
+    )
+  }
+
+  private fun startWmBusNetworkBridge(host: String) {
+    val wmbusPort = SdrPreferences.wmbusNetworkPort(context)
+    DebugLog.log("wM-Bus starting network bridge to $host:$wmbusPort")
+    wmbusBridge?.disconnect()
+    val bridge = TcpStreamBridge<SdrReading.WmBus>("wM-Bus network bridge", WmBusJsonParser::parse)
+    wmbusBridge = bridge
+    bridge.connect(
+      scope = scope,
+      host = host,
+      port = wmbusPort,
+      onReading = { reading -> handleSdrReading(reading) },
+      onError = { message ->
+        DebugLog.log("wM-Bus network bridge error: $message")
+        ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = "wM-Bus: $message") }
+      }
+    )
+  }
+
+  private fun startZwaveNetworkBridge(host: String) {
+    val zwavePort = SdrPreferences.zwaveNetworkPort(context)
+    DebugLog.log("Z-Wave starting network bridge to $host:$zwavePort")
+    zwaveBridge?.disconnect()
+    val bridge = TcpStreamBridge<SdrReading.Zwave>("Z-Wave network bridge", ZwaveJsonParser::parse)
+    zwaveBridge = bridge
+    bridge.connect(
+      scope = scope,
+      host = host,
+      port = zwavePort,
+      onReading = { reading -> handleSdrReading(reading) },
+      onError = { message ->
+        DebugLog.log("Z-Wave network bridge error: $message")
+        ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = "Z-Wave: $message") }
+      }
+    )
+  }
+
+  private fun startSidewalkNetworkBridge(host: String) {
+    val sidewalkPort = SdrPreferences.sidewalkNetworkPort(context)
+    DebugLog.log("Sidewalk starting network bridge to $host:$sidewalkPort")
+    sidewalkBridge?.disconnect()
+    val bridge = TcpStreamBridge<SdrReading.Sidewalk>("Sidewalk network bridge", SidewalkJsonParser::parse)
+    sidewalkBridge = bridge
+    bridge.connect(
+      scope = scope,
+      host = host,
+      port = sidewalkPort,
+      onReading = { reading -> handleSdrReading(reading) },
+      onError = { message ->
+        DebugLog.log("Sidewalk network bridge error: $message")
+        ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = "Sidewalk: $message") }
+      }
+    )
+  }
+
+  private fun startLoRaWanNetworkBridge(host: String) {
+    val lorawanPort = SdrPreferences.lorawanNetworkPort(context)
+    DebugLog.log("LoRaWAN starting network bridge to $host:$lorawanPort")
+    lorawanBridge?.disconnect()
+    val bridge = TcpStreamBridge<SdrReading.LoRaWan>("LoRaWAN network bridge", LoRaWanJsonParser::parse)
+    lorawanBridge = bridge
+    bridge.connect(
+      scope = scope,
+      host = host,
+      port = lorawanPort,
+      onReading = { reading -> handleSdrReading(reading) },
+      onError = { message ->
+        DebugLog.log("LoRaWAN network bridge error: $message")
+        ScanDiagnosticsStore.update { snapshot -> snapshot.copy(lastError = "LoRaWAN: $message") }
       }
     )
   }
@@ -396,16 +553,31 @@ class SdrController(
     return frequencies.distinct()
   }
 
+  private val lastObservationTime = HashMap<String, Long>()
+
+  /** Minimum interval between recorded observations for the same device key. */
+  private companion object {
+    const val MIN_OBSERVATION_INTERVAL_MS = 100L
+  }
+
   internal fun handleSdrReading(reading: SdrReading) {
     val input = ObservationBuilderRegistry.build(reading)
+    val now = System.currentTimeMillis()
     ScanDiagnosticsStore.update {
       it.copy(
         sdrCallbackCount = it.sdrCallbackCount + 1,
         rawCallbackCount = it.rawCallbackCount + 1,
-        lastReadingAt = System.currentTimeMillis(),
+        lastReadingAt = now,
         lastError = null
       )
     }
+
+    // Rate-limit per device key to prevent database flooding from noisy/malicious sources
+    val deviceKey = guru.urchin.scan.DeviceKey.from(input)
+    val lastTime = lastObservationTime[deviceKey]
+    if (lastTime != null && now - lastTime < MIN_OBSERVATION_INTERVAL_MS) return
+    lastObservationTime[deviceKey] = now
+
     val logMessage = when (reading) {
       is SdrReading.Tpms -> "SDR tpms model=${reading.model} sensor=${reading.sensorId} " +
         "pressure=${reading.pressureKpa} temp=${reading.temperatureC}"
@@ -415,6 +587,15 @@ class SdrController(
         "alt=${reading.altitude} speed=${reading.speed}"
       is SdrReading.P25 -> "SDR p25 unit=${reading.unitId} nac=${reading.nac} " +
         "talkgroup=${reading.talkGroupId}"
+      is SdrReading.LoRaWan -> "SDR lorawan devAddr=${reading.devAddr} sf=${reading.spreadingFactor} " +
+        "size=${reading.payloadSize}"
+      is SdrReading.Meshtastic -> "SDR meshtastic node=${reading.nodeId} dest=${reading.destId} " +
+        "hops=${reading.hopStart?.let { s -> reading.hopLimit?.let { l -> "${s - l}/$s" } }}"
+      is SdrReading.WmBus -> "SDR wmbus mfr=${reading.manufacturer} serial=${reading.serialNumber} " +
+        "type=${reading.meterType}"
+      is SdrReading.Zwave -> "SDR zwave home=${reading.homeId} node=${reading.nodeId} " +
+        "frame=${reading.frameType}"
+      is SdrReading.Sidewalk -> "SDR sidewalk smsn=${reading.smsn} frame=${reading.frameType}"
     }
     DebugLog.log(logMessage)
     observationRecorder.record(input)
