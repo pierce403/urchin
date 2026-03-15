@@ -347,8 +347,8 @@ object SensorPresentationBuilder {
 
     val listSummaryParts = buildList {
       metadata.meshNodeId?.let { add("Node: $it") }
-      metadata.meshHopLimit?.let { hops ->
-        metadata.meshHopStart?.let { start -> add("Hops: ${start - hops}/$start") }
+      metadata.meshHopLimit?.let { remaining ->
+        metadata.meshHopStart?.let { start -> add("Hops: ${start - remaining} of $start") }
       }
       metadata.meshChannelHash?.let { add("Ch: $it") }
     }

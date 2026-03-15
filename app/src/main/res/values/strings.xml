@@ -118,7 +118,7 @@
   <string name="alert_rule_deleted">Alert rule deleted.</string>
   <string name="alert_invalid_name">Enter a device name or model to match.</string>
   <string name="alert_invalid_id">Enter a valid sensor ID, ICAO hex, CAP code, or unit ID.</string>
-  <string name="alert_invalid_protocol">Enter a valid protocol: tpms, pocsag, adsb, p25, lorawan, meshtastic, wmbus, zwave, or sidewalk.</string>
+  <string name="alert_invalid_protocol">Enter a valid protocol: tpms, pocsag, adsb, uat, p25, lorawan, meshtastic, wmbus, zwave, or sidewalk.</string>
   <string name="no_alert_rules">No alert rules yet. Tap + to create one.</string>
   <string name="alert_notification_channel_name">Device Alerts</string>
   <string name="alert_notification_channel_description">Audio and visual alerts when matching SDR devices are observed.</string>

@@ -30,6 +30,7 @@ class AlertRuleEngineTest {
     assertEquals("adsb", AlertRuleInputNormalizer.normalize(AlertRuleType.PROTOCOL, "adsb")?.pattern)
     assertEquals("pocsag", AlertRuleInputNormalizer.normalize(AlertRuleType.PROTOCOL, "Pocsag")?.pattern)
     assertEquals("p25", AlertRuleInputNormalizer.normalize(AlertRuleType.PROTOCOL, "P25")?.pattern)
+    assertEquals("uat", AlertRuleInputNormalizer.normalize(AlertRuleType.PROTOCOL, "uat")?.pattern)
     assertEquals("lorawan", AlertRuleInputNormalizer.normalize(AlertRuleType.PROTOCOL, "lorawan")?.pattern)
     assertEquals("lorawan", AlertRuleInputNormalizer.normalize(AlertRuleType.PROTOCOL, "LoRaWAN")?.pattern)
     assertEquals("meshtastic", AlertRuleInputNormalizer.normalize(AlertRuleType.PROTOCOL, "meshtastic")?.pattern)

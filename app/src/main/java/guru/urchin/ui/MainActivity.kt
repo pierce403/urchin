@@ -471,6 +471,27 @@ class MainActivity : AppCompatActivity() {
     binding.protocolZwave.isEnabled = isNetwork
     binding.protocolSidewalk.isEnabled = isNetwork
     binding.rakHatLabel.isEnabled = isNetwork
+
+    // Auto-uncheck RAK HAT protocols when switching to USB (they're network-only)
+    if (!isNetwork) {
+      val rakHatCheckboxes = listOf(
+        binding.protocolLoRaWan,
+        binding.protocolMeshtastic,
+        binding.protocolWmbus,
+        binding.protocolZwave,
+        binding.protocolSidewalk
+      )
+      val anyWasChecked = rakHatCheckboxes.any { it.isChecked }
+      if (anyWasChecked) {
+        bindingPrefs = true
+        rakHatCheckboxes.forEach { it.isChecked = false }
+        bindingPrefs = false
+        val protocols = SdrPreferences.enabledProtocols(this).toMutableSet()
+        protocols.removeAll(setOf("lorawan", "meshtastic", "wmbus", "zwave", "sidewalk"))
+        if (protocols.isEmpty()) protocols.add("tpms")
+        SdrPreferences.setEnabledProtocols(this, protocols)
+      }
+    }
   }
 
   private fun restartIfScanning(source: SdrPreferences.SdrSource? = null) {
@@ -556,6 +577,10 @@ class MainActivity : AppCompatActivity() {
       android.widget.Toast.makeText(this, getString(R.string.network_host), android.widget.Toast.LENGTH_SHORT).show()
       return
     }
+    if (!host.matches(Regex("[a-zA-Z0-9._:-]+"))) {
+      android.widget.Toast.makeText(this, "Invalid host format", android.widget.Toast.LENGTH_SHORT).show()
+      return
+    }
 
     val targets = mutableListOf<ProbeTarget>()
     if (binding.protocolTpms.isChecked || binding.protocolPocsag.isChecked) {
@@ -620,14 +645,20 @@ class MainActivity : AppCompatActivity() {
     binding.testConnectionButton.text = getString(R.string.testing_connection)
 
     lifecycleScope.launch {
-      val results = NetworkProbe.probeAll(targets)
-      binding.testConnectionButton.isEnabled = true
-      binding.testConnectionButton.text = getString(R.string.test_connection)
-      results.forEach { result ->
-        val status = if (result.reachable) "reachable" else "unreachable: ${result.errorMessage}"
-        guru.urchin.util.DebugLog.log("Connection test: ${result.target.label} ${result.target.host}:${result.target.port} $status")
+      try {
+        val results = NetworkProbe.probeAll(targets)
+        results.forEach { result ->
+          val status = if (result.reachable) "reachable" else "unreachable: ${result.errorMessage}"
+          guru.urchin.util.DebugLog.log("Connection test: ${result.target.label} ${result.target.host}:${result.target.port} $status")
+        }
+        showConnectionResults(results)
+      } catch (e: Exception) {
+        guru.urchin.util.DebugLog.log("Connection test failed: ${e.message}")
+        android.widget.Toast.makeText(this@MainActivity, "Test failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+      } finally {
+        binding.testConnectionButton.isEnabled = true
+        binding.testConnectionButton.text = getString(R.string.test_connection)
       }
-      showConnectionResults(results)
     }
   }
 

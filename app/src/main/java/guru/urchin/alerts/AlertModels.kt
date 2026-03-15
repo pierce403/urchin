@@ -12,7 +12,7 @@ enum class AlertRuleType(
 ) {
   NAME("name", "Name", "Device name, model, or callsign"),
   ID("id", "Sensor ID", "TPMS ID, ICAO hex, CAP code, or unit ID"),
-  PROTOCOL("protocol", "Protocol", "tpms, pocsag, adsb, p25, lorawan, meshtastic, wmbus, zwave, or sidewalk");
+  PROTOCOL("protocol", "Protocol", "tpms, pocsag, adsb, uat, p25, lorawan, meshtastic, wmbus, zwave, or sidewalk");
 
   companion object {
     fun fromStorageValue(value: String?): AlertRuleType? {
@@ -90,7 +90,7 @@ data class AlertMatch(
 )
 
 object AlertRuleInputNormalizer {
-  private val KNOWN_PROTOCOLS = setOf("tpms", "pocsag", "adsb", "p25", "lorawan", "meshtastic", "wmbus", "zwave", "sidewalk")
+  private val KNOWN_PROTOCOLS = setOf("tpms", "pocsag", "adsb", "uat", "p25", "lorawan", "meshtastic", "wmbus", "zwave", "sidewalk")
 
   fun normalize(type: AlertRuleType, rawInput: String): NormalizedAlertRuleInput? {
     val trimmed = rawInput.trim()
