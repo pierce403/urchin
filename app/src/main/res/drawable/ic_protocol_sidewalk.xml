@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+  android:width="24dp"
+  android:height="24dp"
+  android:viewportWidth="24"
+  android:viewportHeight="24">
+  <!-- Amazon Sidewalk neighborhood network icon -->
+  <path
+    android:fillColor="#66BB6A"
+    android:pathData="M1,11v10h6v-6h2v6h6V11L8,4zM13,19h-2v-6H5v6H3v-7.17l5,-4.58,5,4.58zM10,3v1.97l2,1.83V3zM17,7h2v2h-2zM17,11h2v2h-2zM17,15h2v2h-2zM15,7h6c0.55,0,1,0.45,1,1v10c0,0.55,-0.45,1,-1,1h-4v-2h3V9h-4V7z" />
+</vector>

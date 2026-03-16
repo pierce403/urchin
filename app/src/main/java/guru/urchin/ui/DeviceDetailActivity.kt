@@ -112,6 +112,31 @@ class DeviceDetailActivity : AppCompatActivity() {
             adapter.submitList(sightings)
           }
         }
+
+        launch {
+          app.database.correlationDao().observeCorrelations(deviceKey).collect { correlations ->
+            if (correlations.isEmpty()) {
+              binding.relatedEmittersLabel.isVisible = false
+              binding.relatedEmittersList.isVisible = false
+              return@collect
+            }
+            binding.relatedEmittersLabel.isVisible = true
+            binding.relatedEmittersList.isVisible = true
+            val lines = correlations.map { c ->
+              val otherKey = if (c.deviceKeyA == deviceKey) c.deviceKeyB else c.deviceKeyA
+              val otherDevice = withContext(Dispatchers.IO) {
+                app.database.deviceDao().getDevice(otherKey)
+              }
+              val name = otherDevice?.userCustomName
+                ?: otherDevice?.displayName
+                ?: otherKey.take(8)
+              val protocol = otherDevice?.protocolType?.uppercase() ?: "?"
+              val pct = (c.confidence * 100).toInt()
+              "$protocol  $name  ($pct% confidence, ${c.coOccurrences} co-occurrences)"
+            }
+            binding.relatedEmittersList.text = lines.joinToString("\n")
+          }
+        }
       }
     }
   }
@@ -202,6 +227,8 @@ class DeviceDetailActivity : AppCompatActivity() {
           add(String.format("Position: %.4f, %.4f", metadata.adsbLat, metadata.adsbLon))
         }
         metadata.adsbSquawk?.let { add("Squawk: $it") }
+        metadata.adsbRangeKm?.let { add(String.format("Range: %.1f km", it)) }
+        metadata.adsbBearingDeg?.let { add(String.format("Bearing: %.0f°", it)) }
         metadata.rssi?.let { add(Formatters.formatRssi(it)) }
       }
       "p25" -> buildList {
@@ -210,6 +237,68 @@ class DeviceDetailActivity : AppCompatActivity() {
         metadata.p25Nac?.let { add("NAC: $it") }
         metadata.p25Wacn?.let { add("WACN: $it") }
         metadata.p25SystemId?.let { add("System ID: $it") }
+        metadata.p25EncryptionAlgorithm?.let { add("Encryption: $it") }
+        if (metadata.p25Emergency == true) add("EMERGENCY")
+        metadata.p25VoiceOrData?.let { add("Type: $it") }
+        metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      }
+      "lorawan" -> buildList {
+        metadata.loraDevAddr?.let { add("DevAddr: $it") }
+        metadata.loraSpreadingFactor?.let { add("Spreading Factor: $it") }
+        metadata.loraCodingRate?.let { add("Coding Rate: $it") }
+        metadata.loraPayloadSize?.let { add("Payload: $it bytes") }
+        metadata.loraCrcOk?.let { add("CRC: ${if (it) "OK" else "Failed"}") }
+        metadata.loraFPort?.let { add("FPort: $it") }
+        metadata.loraFrameCounter?.let { add("Frame Count: $it") }
+        metadata.loraMType?.let { add("MType: $it") }
+        metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      }
+      "meshtastic" -> buildList {
+        metadata.meshNodeId?.let { add("Node ID: $it") }
+        metadata.meshDestId?.let { add("Destination: $it") }
+        metadata.meshPacketId?.let { add("Packet ID: $it") }
+        metadata.meshHopLimit?.let { add("Hop Limit: $it") }
+        metadata.meshHopStart?.let { add("Hop Start: $it") }
+        metadata.meshChannelHash?.let { add("Channel Hash: $it") }
+        metadata.meshPortNum?.let { add("Port: $it") }
+        metadata.meshPayloadText?.let { add("Text: $it") }
+        metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      }
+      "wmbus" -> buildList {
+        metadata.wmbusManufacturer?.let { add("Manufacturer: $it") }
+        metadata.wmbusSerialNumber?.let { add("Serial Number: $it") }
+        metadata.wmbusMeterVersion?.let { add("Version: $it") }
+        metadata.wmbusMeterType?.let { add("Meter Type: $it") }
+        metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      }
+      "zwave" -> buildList {
+        metadata.zwaveHomeId?.let { add("Home ID: $it") }
+        metadata.zwaveNodeId?.let { add("Node ID: $it") }
+        metadata.zwaveFrameType?.let { add("Frame Type: $it") }
+        metadata.zwaveCommandClass?.let { add("Command Class: $it") }
+        metadata.zwaveNodeRole?.let { add("Role: $it") }
+        metadata.zwaveSecurityLevel?.let { add("Security: $it") }
+        metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      }
+      "dmr" -> buildList {
+        metadata.dmrRadioId?.let { add("Radio ID: $it") }
+        metadata.dmrColorCode?.let { add("Color Code: $it") }
+        metadata.dmrSlot?.let { add("Slot: $it") }
+        metadata.dmrTalkGroup?.let { add("Talk Group: $it") }
+        metadata.dmrDataType?.let { add("Type: $it") }
+        metadata.dmrEncrypted?.let { add("Encrypted: ${if (it) "Yes" else "No"}") }
+        metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      }
+      "nxdn" -> buildList {
+        metadata.nxdnUnitId?.let { add("Unit ID: $it") }
+        metadata.nxdnRan?.let { add("RAN: $it") }
+        metadata.nxdnTalkGroup?.let { add("Talk Group: $it") }
+        metadata.nxdnMessageType?.let { add("Message Type: $it") }
+        metadata.rssi?.let { add(Formatters.formatRssi(it)) }
+      }
+      "sidewalk" -> buildList {
+        metadata.sidewalkSmsn?.let { add("SMSN: $it") }
+        metadata.sidewalkFrameType?.let { add("Frame Type: $it") }
         metadata.rssi?.let { add(Formatters.formatRssi(it)) }
       }
       else -> buildList {

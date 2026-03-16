@@ -4,6 +4,9 @@ import guru.urchin.scan.ObservationInput
 
 object AdsbObservationBuilder {
   fun build(reading: SdrReading.Adsb): ObservationInput {
+    val isUat = reading.frequencyMhz != null && reading.frequencyMhz < 1000.0
+    val linkLabel = if (isUat) "UAT" else "ADS-B"
+    val protocol = if (isUat) "uat" else "adsb"
     val callsignPart = reading.callsign?.takeIf { it.isNotBlank() }
     val displayName = if (callsignPart != null) {
       "Aircraft $callsignPart (${reading.icao})"
@@ -20,11 +23,11 @@ object AdsbObservationBuilder {
       source = "SDR",
       transport = "sdr",
       nameSource = "adsb_transponder",
-      protocolType = "adsb",
+      protocolType = protocol,
       classificationCategory = "aircraft",
-      classificationLabel = "ADS-B transponder",
+      classificationLabel = "$linkLabel transponder",
       classificationConfidence = "high",
-      classificationEvidence = listOf("source:sdr", "protocol:adsb", "icao:${reading.icao}"),
+      classificationEvidence = listOf("source:sdr", "protocol:$protocol", "icao:${reading.icao}"),
       adsbIcao = reading.icao,
       adsbCallsign = reading.callsign,
       adsbAltitude = reading.altitude,

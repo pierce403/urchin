@@ -68,6 +68,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         ?: metadata.pocsagCapCode
         ?: metadata.adsbIcao
         ?: metadata.p25UnitId
+        ?: metadata.dmrRadioId
+        ?: metadata.nxdnUnitId
+        ?: metadata.loraDevAddr
+        ?: metadata.meshNodeId
+        ?: metadata.wmbusSerialNumber
+        ?: metadata.zwaveHomeId
+        ?: metadata.sidewalkSmsn
       DeviceListItem(
         deviceKey = device.deviceKey,
         displayName = device.displayName,

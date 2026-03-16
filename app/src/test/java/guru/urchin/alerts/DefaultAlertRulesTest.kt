@@ -9,16 +9,17 @@ class DefaultAlertRulesTest {
   fun `builds expected seeded default alerts`() {
     val rules = DefaultAlertRules.buildEntities(nowMs = 100L)
 
-    assertEquals(2, rules.size)
-    assertTrue(rules.any { it.matchPattern == "tpms" && it.soundPreset == AlertSoundPreset.PING.storageValue })
-    assertTrue(rules.any { it.matchPattern == "adsb" && it.soundPreset == AlertSoundPreset.CHIME.storageValue })
+    assertEquals(3, rules.size)
+    assertTrue(rules.any { it.matchPattern == "tpms" && it.matchType == AlertRuleType.PROTOCOL.storageValue })
+    assertTrue(rules.any { it.matchPattern == "adsb" && it.matchType == AlertRuleType.PROTOCOL.storageValue })
+    assertTrue(rules.any { it.matchType == AlertRuleType.SURVEILLANCE.storageValue })
   }
 
   @Test
-  fun `all default rules are protocol type`() {
+  fun `all default rules use known alert types`() {
     val rules = DefaultAlertRules.buildEntities()
 
-    assertTrue(rules.all { it.matchType == AlertRuleType.PROTOCOL.storageValue })
+    assertTrue(rules.all { AlertRuleType.fromStorageValue(it.matchType) != null })
   }
 
   @Test

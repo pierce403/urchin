@@ -4,12 +4,11 @@
 /.vscode/
 
 **/build/
+app/.cxx/
 *.iml
 .DS_Store
 local.properties
 thingalert_ui.xml
 
 # Third-party cloned sources (fetched by scripts/setup-third-party.sh)
-third_party/libusb/
-third_party/rtl-sdr/
-third_party/rtl_433/
+third_party/

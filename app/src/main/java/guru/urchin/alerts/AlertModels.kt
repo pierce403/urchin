@@ -12,7 +12,11 @@ enum class AlertRuleType(
 ) {
   NAME("name", "Name", "Device name, model, or callsign"),
   ID("id", "Sensor ID", "TPMS ID, ICAO hex, CAP code, or unit ID"),
-  PROTOCOL("protocol", "Protocol", "tpms, pocsag, adsb, or p25");
+  PROTOCOL("protocol", "Protocol", "tpms, pocsag, adsb, uat, p25, lorawan, meshtastic, wmbus, zwave, or sidewalk"),
+  RSSI_THRESHOLD("rssi_threshold", "Proximity (RSSI)", "Protocol and RSSI threshold (e.g. -50)"),
+  NEW_DEVICE("new_device", "New device", "Protocol to watch for new emitters"),
+  ABSENCE("absence", "Absence", "Protocol and absence timeout in minutes"),
+  SURVEILLANCE("surveillance", "Surveillance", "TPMS follow detection (automatic)");
 
   companion object {
     fun fromStorageValue(value: String?): AlertRuleType? {
@@ -81,7 +85,9 @@ data class AlertObservation(
   val displayName: String?,
   val sensorId: String?,
   val protocolType: String?,
-  val source: String
+  val source: String,
+  val rssi: Int = 0,
+  val isNewDevice: Boolean = false
 )
 
 data class AlertMatch(
@@ -90,7 +96,7 @@ data class AlertMatch(
 )
 
 object AlertRuleInputNormalizer {
-  private val KNOWN_PROTOCOLS = setOf("tpms", "pocsag", "adsb", "p25")
+  private val KNOWN_PROTOCOLS = setOf("tpms", "pocsag", "adsb", "uat", "p25", "lorawan", "meshtastic", "wmbus", "zwave", "sidewalk", "dmr", "nxdn")
 
   fun normalize(type: AlertRuleType, rawInput: String): NormalizedAlertRuleInput? {
     val trimmed = rawInput.trim()
@@ -110,6 +116,23 @@ object AlertRuleInputNormalizer {
         val lower = trimmed.lowercase()
         if (lower !in KNOWN_PROTOCOLS) return null
         NormalizedAlertRuleInput(pattern = lower, displayValue = lower)
+      }
+      AlertRuleType.RSSI_THRESHOLD -> {
+        val threshold = trimmed.toIntOrNull() ?: return null
+        NormalizedAlertRuleInput(pattern = "", displayValue = "$threshold dBm")
+      }
+      AlertRuleType.NEW_DEVICE -> {
+        val lower = trimmed.lowercase()
+        if (lower.isNotEmpty() && lower !in KNOWN_PROTOCOLS) return null
+        NormalizedAlertRuleInput(pattern = lower, displayValue = if (lower.isEmpty()) "any protocol" else lower)
+      }
+      AlertRuleType.ABSENCE -> {
+        val minutes = trimmed.toIntOrNull() ?: return null
+        if (minutes <= 0) return null
+        NormalizedAlertRuleInput(pattern = "", displayValue = "$minutes min")
+      }
+      AlertRuleType.SURVEILLANCE -> {
+        NormalizedAlertRuleInput(pattern = "tpms", displayValue = "TPMS follow detection")
       }
     }
   }
@@ -136,6 +159,25 @@ object DeviceAlertMatcher {
         }
         AlertRuleType.PROTOCOL -> {
           observation.protocolType?.lowercase() == rule.matchPattern
+        }
+        AlertRuleType.RSSI_THRESHOLD -> {
+          val threshold = rule.rssiThreshold ?: return@mapNotNull null
+          val protocolMatch = rule.matchPattern.isEmpty() ||
+            observation.protocolType?.lowercase() == rule.matchPattern
+          protocolMatch && observation.rssi >= threshold
+        }
+        AlertRuleType.NEW_DEVICE -> {
+          val protocolMatch = rule.matchPattern.isEmpty() ||
+            observation.protocolType?.lowercase() == rule.matchPattern
+          protocolMatch && observation.isNewDevice
+        }
+        AlertRuleType.ABSENCE -> {
+          // Absence alerts are evaluated externally by the absence checker, not here
+          false
+        }
+        AlertRuleType.SURVEILLANCE -> {
+          // Surveillance alerts are evaluated by SurveillanceDetector, not here
+          false
         }
       }
 

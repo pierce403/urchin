@@ -213,6 +213,10 @@ class AlertsActivity : AppCompatActivity() {
         AlertRuleType.NAME -> getString(R.string.alert_invalid_name)
         AlertRuleType.ID -> getString(R.string.alert_invalid_id)
         AlertRuleType.PROTOCOL -> getString(R.string.alert_invalid_protocol)
+        AlertRuleType.RSSI_THRESHOLD -> "Enter a valid RSSI threshold in dBm (e.g. -50)."
+        AlertRuleType.NEW_DEVICE -> getString(R.string.alert_invalid_protocol)
+        AlertRuleType.ABSENCE -> "Enter a valid number of minutes."
+        AlertRuleType.SURVEILLANCE -> "Surveillance alerts are configured automatically."
       }
       toast(message)
       return
@@ -228,7 +232,9 @@ class AlertsActivity : AppCompatActivity() {
           emoji = emoji.emoji,
           soundPreset = soundPreset.storageValue,
           enabled = existingRule?.enabled ?: true,
-          createdAt = existingRule?.createdAt ?: System.currentTimeMillis()
+          createdAt = existingRule?.createdAt ?: System.currentTimeMillis(),
+          rssiThreshold = if (type == AlertRuleType.RSSI_THRESHOLD) rawInput.trim().toIntOrNull() else null,
+          absenceMinutes = if (type == AlertRuleType.ABSENCE) rawInput.trim().toIntOrNull() else null
         )
       )
       dialog.dismiss()
