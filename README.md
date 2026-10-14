@@ -75,3 +75,11 @@ See [docs/EMULATOR_SETUP.md](docs/EMULATOR_SETUP.md) for creating an AVD, launch
 - All observations stay on-device by default.
 - No cloud sync is included.
 - Different protocol types have different retention periods (7–30 days).
+
+## Cloudflare publishing
+
+Native Cloudflare Git builds publish `main`. Validate with `npm ci` and
+`npm run check:deploy`; build uses `npm run build`, deployment `npm run deploy`.
+Only the reviewed public file list is copied to `dist`; original public content
+and GitHub Pages recovery remain. Credentials stay in Cloudflare and previews
+are disabled. The revision is at `/.well-known/cloudflare-build.json`.

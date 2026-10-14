@@ -13,3 +13,7 @@ thingalert_ui.xml
 third_party/libusb/
 third_party/rtl-sdr/
 third_party/rtl_433/
+
+node_modules/
+dist/
+.wrangler/
